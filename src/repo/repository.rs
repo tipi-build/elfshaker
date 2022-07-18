@@ -13,6 +13,8 @@ use std::{
     time::SystemTime,
 };
 
+use filetime::{set_file_mtime, FileTime};
+
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
 use log::{error, info, warn};
@@ -529,6 +531,7 @@ impl Repository {
         let threads = num_cpus::get();
 
         let pack_entries = run_in_parallel(threads, files.into_iter(), |file_path| {
+            let metadata = fs::metadata(&file_path).unwrap();
             let buf = fs::read(&file_path)?;
             let mut checksum = [0u8; 20];
             let mut hasher = Sha1::new();
@@ -542,6 +545,8 @@ impl Repository {
                 ObjectMetadata {
                     offset: LOOSE_OBJECT_OFFSET,
                     size: buf.len() as u64,
+                    last_modified: FileTime::from_last_modification_time(&metadata).seconds(),
+                    last_modified_nanos: FileTime::from_last_modification_time(&metadata).nanoseconds(),
                 },
             ))
         })
@@ -762,6 +767,8 @@ impl Repository {
                     ),
                 )
             })?;
+            set_file_mtime(dest_path.parent().unwrap(),FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
+            set_file_mtime(&dest_path,FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
         }
 
         if verify {

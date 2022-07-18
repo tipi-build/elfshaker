@@ -266,6 +266,8 @@ impl FileEntry {
 pub struct ObjectMetadata {
     pub offset: u64,
     pub size: u64,
+    pub last_modified: i64,
+    pub last_modified_nanos: u32,
 }
 
 /// Contains the metadata needed to extract files from a pack file.

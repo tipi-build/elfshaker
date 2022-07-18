@@ -11,6 +11,8 @@ use std::{
 };
 use std::{fmt::Display, str::FromStr};
 
+use filetime::{set_file_mtime, FileTime};
+
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
 
@@ -492,10 +494,13 @@ fn verify_object(buf: &[u8], exp_checksum: &ObjectChecksum) -> Result<(), Error>
 
 /// Writes the object to the specified path, taking care
 /// of adjusting file permissions.
-fn write_object(buf: &[u8], path: &Path) -> Result<(), Error> {
+fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:u32 ) -> Result<(), Error> {
     fs::create_dir_all(path.parent().unwrap())?;
     let mut f = create_file(path)?;
     f.write_all(buf)?;
+
+    set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(last_modified, last_modified_nanos))?;    
+    set_file_mtime(&path,FileTime::from_unix_time(last_modified, last_modified_nanos))?;   
     Ok(())
 }
 
@@ -548,6 +553,8 @@ fn assign_to_frames(
             ObjectMetadata {
                 offset: local_offset, // Replace global offset -> local offset
                 size: entry.metadata.size,
+                last_modified: entry.metadata.last_modified,
+                last_modified_nanos: entry.metadata.last_modified_nanos,
             },
         );
         frames[frame_index].push(local_entry);
@@ -661,7 +668,7 @@ fn extract_files(
             path_buf.clear();
             path_buf.push(&output_dir);
             path_buf.push(&entry.path);
-            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf))?
+            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf, entry.metadata.last_modified, entry.metadata.last_modified_nanos))?
                 .0
                 .as_secs_f64();
         }
@@ -678,8 +685,8 @@ fn extract_files(
 mod tests {
     use super::*;
 
-    fn make_md(offset: u64, size: u64) -> ObjectMetadata {
-        ObjectMetadata { offset, size }
+    fn make_md(offset: u64, size: u64, last_modified: i64, last_modified_nanos: u32) -> ObjectMetadata {
+        ObjectMetadata { offset, size, last_modified, last_modified_nanos }
     }
 
     #[test]
