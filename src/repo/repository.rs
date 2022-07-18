@@ -767,7 +767,7 @@ impl Repository {
                     ),
                 )
             })?;
-            set_file_mtime(dest_path.parent().unwrap(),FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
+            set_file_mtime(&dest_path.parent().unwrap(),FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
             set_file_mtime(&dest_path,FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
         }
 
