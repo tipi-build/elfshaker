@@ -8,7 +8,6 @@ use std::{
 };
 
 #[cfg(target_family = "windows")]
-use same_file::is_same_file;
 use same_file::Handle;
 
 #[cfg(target_family = "unix")]
