@@ -100,7 +100,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: install and build 
         run: |
-          apt install zip
+          apt install zip -y
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
           ./sh.rustup.sh -q -y
