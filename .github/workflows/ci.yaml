@@ -60,5 +60,5 @@ jobs:
         with:
           upload_url: ${{needs.draft-release.outputs.upload_url}}
           asset_path: ./elfshaker-win.zip
-          asset_name: elfshaker-win
+          asset_name: elfshaker-win.zip
           asset_content_type: application/zip
