@@ -1,0 +1,64 @@
+name: build
+# This workflow is  triggered on pushes, pull requests to the repository.
+on:
+  push:
+    branches:
+      - master
+      - develop
+  pull_request:
+env:
+  version_in_development: v0.0.1
+
+jobs:
+  draft-release:
+    name: Draft Release if develop branch
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.draft_release.outputs.upload_url }}  
+      release_id: ${{ steps.draft_release.outputs.id }}  
+    steps:
+      - name: Create Release
+        id: draft_release
+        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/support-windows'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          owner: tipi-build 
+          repo: elfshaker
+          commitish: master
+          tag_name: ${{ env.version_in_development }}
+          release_name: ${{ env.version_in_development }} ${{ github.sha }}
+          draft: true
+          prerelease: true 
+
+  build-win:
+    name: build-win
+    runs-on: windows-2019
+    needs: draft-release
+    env:
+      TIPI_HOME_DIR: D:\a\.tipi
+      HUNTER_ROOT: D:\a\.tipi\platform\6b9afd6 # only to build with older ancestrals that don't export HUNTER_ROOT
+      PreferredToolArchitecture: x64
+    steps:
+      - uses: actions/checkout@v2
+      - name: install and build 
+        run: |
+          Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
+          rustup-init.exe -q -y
+          cargo  build --release --bin elfshaker
+          Compress-Archive -Path .\target\release\elfshaker.exe -DestinationPath ./elfshaker-win.zip
+      - uses: actions/upload-artifact@v3
+        with:
+          name: elfshaker_win_artifact
+          path: ./elfshaker-win.zip
+      - name: Upload elfshaker package
+        id: upload-tipi-elfshaker-package 
+        uses: actions/upload-release-asset@v1
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{needs.draft-release.outputs.upload_url}}
+          asset_path: /tipi-${{ env.version_in_development }}-elfshaker-win.zip
+          asset_name: tipi-${{ env.version_in_development }}-elfshaker-win.zip
+          asset_content_type: application/zip
