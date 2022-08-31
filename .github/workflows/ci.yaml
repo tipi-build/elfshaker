@@ -3,7 +3,7 @@ name: build
 on:
   push:
     branches:
-      - master
+      - main
       - develop
   pull_request:
 env:
@@ -26,7 +26,7 @@ jobs:
         with:
           owner: tipi-build 
           repo: elfshaker
-          commitish: master
+          commitish: main
           tag_name: ${{ env.version_in_development }}
           release_name: ${{ env.version_in_development }} ${{ github.sha }}
           draft: true
