@@ -103,7 +103,8 @@ jobs:
           apt install zip -y
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
-          ./sh.rustup.sh -q -y
+          ./sh.rustup.sh -q -y --no-modify-path
+          export PATH="$HOME/.cargo/bin:$PATH"
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
           zip elfshaker-linux.zip ./target/release/elfshaker
