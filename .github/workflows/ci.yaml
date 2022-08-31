@@ -94,7 +94,7 @@ jobs:
     name: build-linux
     runs-on: ubuntu-latest
     container: 
-      image: tipibuild/tipi-ubuntu-1604-develop
+      image: tipibuild/tipi-ubuntu-1604
     needs: draft-release
     steps:
       - uses: actions/checkout@v2
