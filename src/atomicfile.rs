@@ -7,6 +7,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[cfg(target_family = "windows")]
+use same_file::is_same_file;
+use same_file::Handle;
+
+#[cfg(target_family = "unix")]
 use std::os::unix::fs::MetadataExt;
 
 /// AtomicCreateFile provides an API for atomically creating a file, determining
@@ -60,10 +65,22 @@ pub struct AtomicCreateFile<'l> {
 /// lock_name acquires a lock on the given `fd`, and ensures that the
 /// `fd` relates to the given Path. This protects against the case where
 /// a file can be locked, but unlinked.
+#[cfg(target_family = "windows")]
+fn lock_name(name: &Path, fd: &File) -> io::Result<()> {
+  let  f = File::open(name)?;
+  let i0 = Handle::from_file(f)?;
+  let i1 = Handle::from_path(name)?;
+  fd.try_lock_exclusive()?;
+
+  if i0 != i1 {
+    return Err(io::Error::new(io::ErrorKind::WouldBlock, "would block"));
+  }
+  Ok(())
+}
+
+#[cfg(target_family = "unix")]
 fn lock_name(name: &Path, fd: &File) -> io::Result<()> {
     fd.try_lock_exclusive()?;
-    // Lock acquired. Ensure that the name on the filesystem corresponds
-    // to the lock now held.
     let i0 = fd.metadata()?.ino();
     let i1 = fs::metadata(name)?.ino();
     if i0 != i1 {
