@@ -999,9 +999,9 @@ where
         })
         .map(|p| {
             Ok( p.as_ref()
-                //.canonicalize()?
+                .canonicalize()?
                 .components()
-                //.skip(repo_dir.components().count())
+                .skip(repo_dir.components().count())
                 .collect::<PathBuf>()
             )
         })
