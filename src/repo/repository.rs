@@ -298,6 +298,9 @@ impl Repository {
         let PackId::Pack(pack_name) = pack_id;
 
         // The pack is loose if the .pack.idx is in the loose packs directory
+        #[cfg(target_family = "windows")]
+        let pack_name = Self::replace_back_to_slash(&pack_name);
+
         if !pack_name.starts_with(&(LOOSE_DIR.to_owned() + "/")) {
             return false;
         }
@@ -307,7 +310,6 @@ impl Repository {
             .join(PACKS_DIR)
             .join(pack_name)
             .with_extension(PACK_INDEX_EXTENSION);
-
         pack_index_path.exists()
     }
 
@@ -531,6 +533,9 @@ impl Repository {
         let threads = num_cpus::get();
 
         let pack_entries = run_in_parallel(threads, files.into_iter(), |file_path| {
+            #[cfg(target_family = "windows")]
+            let file_path = Self::replace_back_to_slash(&file_path.as_os_str().to_str().unwrap().to_string());
+
             let metadata = fs::metadata(&file_path).unwrap();
             let buf = fs::read(&file_path)?;
             let mut checksum = [0u8; 20];
@@ -568,6 +573,25 @@ impl Repository {
         self.update_head(snapshot)?;
 
         Ok(())
+    }
+
+    #[cfg(target_family = "windows")]
+    pub fn replace_back_to_slash(a: &str)-> String {
+        let  file_path_replaced = a.replace(r"\","/");
+    
+        let mut is_cr = false;
+        for b in file_path_replaced.bytes() {
+            if b == 13 {
+                is_cr = true;
+            }
+        }
+        let mut file_path_replacedop: &str = &file_path_replaced;
+
+        if is_cr == true {
+            file_path_replacedop = &file_path_replaced[0..file_path_replaced.len() - 1];
+        }
+
+        return file_path_replacedop.to_string();
     }
 
     /// Creates a pack file.
@@ -923,15 +947,16 @@ impl Repository {
 
 /// Cleans the list of file paths relative to the repository root,
 /// and skips any paths pointing into the repository data directory.
+#[cfg(target_family = "windows")]
 fn clean_file_list<P>(
-    repo_dir: &Path,
+    _repo_dir: &Path,
     files: impl Iterator<Item = P>,
 ) -> io::Result<impl Iterator<Item = PathBuf>>
 where
     P: AsRef<Path>,
 {
-    let files = files
-        .flat_map(|p| {
+    let files = 
+    files.flat_map(|p| {
             if p.as_ref().is_relative() {
                 Ok(p)
             } else {
@@ -942,16 +967,47 @@ where
             }
         })
         .map(|p| {
-            Ok(p.as_ref()
-                .canonicalize()?
+            Ok( p.as_ref()
                 .components()
-                .skip(repo_dir.components().count())
-                .collect::<PathBuf>())
+                .collect::<PathBuf>()
+            )
         })
         .collect::<io::Result<Vec<PathBuf>>>()?
         .into_iter()
-        .filter(|p| !is_elfshaker_data_path(p));
+       .filter(|p| !is_elfshaker_data_path(p));    
+    Ok(files)
+}
 
+#[cfg(target_family = "unix")]
+fn clean_file_list<P>(
+    repo_dir: &Path,
+    files: impl Iterator<Item = P>,
+) -> io::Result<impl Iterator<Item = PathBuf>>
+where
+    P: AsRef<Path>,
+{
+    let files = 
+    files.flat_map(|p| {
+            if p.as_ref().is_relative() {
+                Ok(p)
+            } else {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("Expected a relative path, got {:?}!", p.as_ref()),
+                ))
+            }
+        })
+        .map(|p| {
+            Ok( p.as_ref()
+                //.canonicalize()?
+                .components()
+                //.skip(repo_dir.components().count())
+                .collect::<PathBuf>()
+            )
+        })
+        .collect::<io::Result<Vec<PathBuf>>>()?
+        .into_iter()
+       .filter(|p| !is_elfshaker_data_path(p));    
     Ok(files)
 }
 

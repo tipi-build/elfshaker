@@ -142,6 +142,7 @@ dependencies = [
  "rand 0.8.4",
  "rmp-serde",
  "rust-crypto",
+ "same-file",
  "serde",
  "ureq",
  "url",
