@@ -203,7 +203,6 @@ impl<'l> AtomicCreateFile<'l> {
         fs::rename(&self.temp.0, self.path)?;
         // Silence field-not-read warning, and conceptually: release the lock
         // here.
-        #[cfg(target_family = "unix")]
         drop(self.target);
         Ok(())
     }
@@ -263,14 +262,6 @@ mod tests {
 
         fs::remove_file(&p)?;
         let (n_success, n_fail) = (1, n_total - 1);
-
-        println!("{}",n_success);
-        println!("{}",n_fail);
-        println!("{}",result);
-
-
-
-
         // Test that we see exactly one success and the rest as failures.
         assert_eq!((n_success * 1) + (n_fail * -1), result);
 
