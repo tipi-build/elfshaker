@@ -68,15 +68,13 @@ pub struct AtomicCreateFile<'l> {
 /// `fd` relates to the given Path. This protects against the case where
 /// a file can be locked, but unlinked.
 #[cfg(target_family = "windows")]
-fn lock_name(name: &Path, fd: &File) -> io::Result<()> {
-  let  f = File::open(name)?;
-  fd.try_lock_exclusive()?;
-  let i0 = Handle::from_file(f)?;
-  let i1 = Handle::from_path(name)?;
+fn lock_name(_name: &Path, fd: &File) -> io::Result<()> {
+    fd.try_lock_exclusive()?;
+    let meta = fd.metadata()?;
 
-  if i0 != i1 {
-    return Err(io::Error::new(io::ErrorKind::WouldBlock, "would block"));
-  }
+    if !meta.is_file() {
+        return Err(io::Error::new(io::ErrorKind::WouldBlock, "would block"));
+    }
   Ok(())
 }
 
@@ -95,7 +93,6 @@ impl<'l> AtomicCreateFile<'l> {
     pub fn new(dest: &'l Path) -> io::Result<Self> {
         let mut atomic_create_for_write = OpenOptions::new();
         atomic_create_for_write.write(true).create_new(true);
-
         let parent = dest.parent().unwrap_or_else(|| Path::new("/"));
         let file = match atomic_create_for_write.open(dest) {
             Ok(file) => {
@@ -203,6 +200,12 @@ impl<'l> AtomicCreateFile<'l> {
         );
         // Check that the data made it to disk before proceeding.
         self.temp.1.sync_data()?;
+        
+        println!("{}",self.temp.0.display());
+        println!("{}",self.path.display());
+
+        #[cfg(target_family = "windows")]
+        fs::remove_file(self.path)?;
         fs::rename(self.temp.0, self.path)?;
         // Silence field-not-read warning, and conceptually: release the lock
         // here.
@@ -244,9 +247,8 @@ mod tests {
         // Should succeed later.
         fs::create_dir_all(p.parent().unwrap())?;
         fs::write(&p, vec![])?;
-
         let content = b"non-empty" as &[u8];
-        const NTHREAD: i32 = 2;
+        const NTHREAD: i32 = 128;
         let n_total = NTHREAD * 1000;
         // 128 threads trying 1000 times to open the same file. Only one should succeed.
         let result: i32 = run_in_parallel(NTHREAD as usize, 0..n_total, |_| {
@@ -255,15 +257,9 @@ mod tests {
         .into_iter()
         .map(|r| match r {
             Ok(_) => 1,
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => -1,
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => -1,
             #[cfg(target_family = "windows")]
             Err(e) if e.kind() == io::ErrorKind::PermissionDenied => -1,
-            #[cfg(target_family = "windows")]
-            Err(e) if e.kind() == io::ErrorKind::NotFound => -1,
-            #[cfg(target_family = "windows")]
-            Err(e) if e.kind().to_string() == "uncategorized error"   => -1,
-
             Err(e) => panic!("unexpected error: {:?}", e),
         })
         .sum();
