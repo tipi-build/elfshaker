@@ -69,10 +69,11 @@ pub struct AtomicCreateFile<'l> {
 /// a file can be locked, but unlinked.
 #[cfg(target_family = "windows")]
 fn lock_name(name: &Path, fd: &File) -> io::Result<()> {
+  //let  f = File::open(name)?;
+  fd.try_lock_exclusive()?;
   let  f = File::open(name)?;
   let i0 = Handle::from_file(f)?;
   let i1 = Handle::from_path(name)?;
-  fd.try_lock_exclusive()?;
 
   if i0 != i1 {
     return Err(io::Error::new(io::ErrorKind::WouldBlock, "would block"));
