@@ -246,7 +246,7 @@ mod tests {
         fs::write(&p, vec![])?;
 
         let content = b"non-empty" as &[u8];
-        const NTHREAD: i32 = 10;
+        const NTHREAD: i32 = 2;
         let n_total = NTHREAD * 1000;
         // 128 threads trying 1000 times to open the same file. Only one should succeed.
         let result: i32 = run_in_parallel(NTHREAD as usize, 0..n_total, |_| {
