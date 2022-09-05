@@ -1043,13 +1043,16 @@ mod tests {
             progress_reporter_factory: Box::new(|_| ProgressReporter::dummy()),
         };
         let path = repo.loose_object_path(&checksum);
+        let path_string = path.to_str().unwrap();
+        #[cfg(target_family = "windows")]
+        let  path_string = path_string.replace(r"\","/");
         assert_eq!(
             format!(
                 "/repo/{}/{}/fa/f0/deadbeefbadc0de0faf0deadbeefbadc0de0",
                 Repository::data_dir(),
                 LOOSE_DIR
             ),
-            path.to_str().unwrap(),
+            path_string,
         );
     }
 

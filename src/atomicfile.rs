@@ -7,11 +7,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
+
 #[cfg(target_family = "windows")]
 use same_file::Handle;
 
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::MetadataExt;
+
+
 
 /// AtomicCreateFile provides an API for atomically creating a file, determining
 /// if it exists before proceeding to do potentially expensive work to fill it.
@@ -225,12 +228,17 @@ mod tests {
     use std::error::Error;
 
     use crate::repo::run_in_parallel;
+    use std::env;
+
 
     use super::*;
 
     #[test]
     fn test_atomic_update_api() -> Result<(), Box<dyn Error>> {
-        let p = create_temp_path("/tmp/test_atomic_update_api");
+        let mut dir = env::temp_dir();
+        dir.push(r"test_atomic_update_api");
+        println!("Temporary directory: {}", dir.display());
+        let p = create_temp_path(dir);
 
         // Create an empty file with no lock on it.
         // Should succeed later.
@@ -248,6 +256,13 @@ mod tests {
         .map(|r| match r {
             Ok(_) => 1,
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => -1,
+            #[cfg(target_family = "windows")]
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied => -1,
+            #[cfg(target_family = "windows")]
+            Err(e) if e.kind() == io::ErrorKind::NotFound => -1,
+            #[cfg(target_family = "windows")]
+            Err(e) if e.kind().to_string() == "uncategorized error"   => -1,
+
             Err(e) => panic!("unexpected error: {:?}", e),
         })
         .sum();
