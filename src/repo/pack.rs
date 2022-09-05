@@ -8,6 +8,8 @@ use std::{
     io,
     io::{BufReader, Read, Write},
     path::{Path, PathBuf},
+    time::SystemTime,
+
 };
 use std::{fmt::Display, str::FromStr};
 
@@ -728,8 +730,8 @@ mod tests {
             decompressed_size: 1000,
         }];
         let entries = [
-            FileEntry::new("A".into(), [0; 20], make_md(50, 1)),
-            FileEntry::new("B".into(), [1; 20], make_md(50, 1)),
+            FileEntry::new("A".into(), [0; 20], make_md(50, 1,0,0)),
+            FileEntry::new("B".into(), [1; 20], make_md(50, 1,0,0)),
         ];
         let result = assign_to_frames(&frames, &entries).unwrap();
         assert_eq!(1, result.len());
@@ -748,16 +750,16 @@ mod tests {
             },
         ];
         let entries = [
-            FileEntry::new("A".into(), [0; 20], make_md(800, 200)),
-            FileEntry::new("B".into(), [1; 20], make_md(1200, 200)),
+            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0)),
+            FileEntry::new("B".into(), [1; 20], make_md(1200, 200,0,0)),
         ];
         let frame_1_entries = [
             // Offset is same
-            FileEntry::new("A".into(), [0; 20], make_md(800, 200)),
+            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0)),
         ];
         let frame_2_entries = [
             // Offset 1200 -> 200
-            FileEntry::new("B".into(), [1; 20], make_md(200, 200)),
+            FileEntry::new("B".into(), [1; 20], make_md(200, 200,0,0)),
         ];
         let result = assign_to_frames(&frames, &entries).unwrap();
         assert_eq!(2, result.len());

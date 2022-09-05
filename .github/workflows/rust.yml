@@ -24,3 +24,4 @@ jobs:
       run: ./test-scripts/check.sh ./target/release/elfshaker ./test-scripts/artifacts/verification.pack
     - name: Generate random pack
       run: ./test-scripts/check.sh ./target/release/elfshaker $(contrib/create-test-pack ./target/release/elfshaker 5 64)
+

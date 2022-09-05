@@ -1027,6 +1027,9 @@ mod tests {
     static EXAMPLE_MD: ObjectMetadata = ObjectMetadata {
         size: 1,
         offset: LOOSE_OBJECT_OFFSET,
+        last_modified: 0,
+        last_modified_nanos: 0,
+
     };
 
     #[test]
