@@ -199,16 +199,11 @@ impl<'l> AtomicCreateFile<'l> {
              AtomicCreateFile assumes non-empty files",
         );
         // Check that the data made it to disk before proceeding.
-        self.temp.1.sync_data()?;
-        
-        println!("{}",self.temp.0.display());
-        println!("{}",self.path.display());
-
-        #[cfg(target_family = "windows")]
-        fs::remove_file(self.path)?;
-        fs::rename(self.temp.0, self.path)?;
+        self.temp.1.sync_data()?;      
+        fs::rename(&self.temp.0, self.path)?;
         // Silence field-not-read warning, and conceptually: release the lock
         // here.
+        #[cfg(target_family = "unix")]
         drop(self.target);
         Ok(())
     }
@@ -260,6 +255,8 @@ mod tests {
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => -1,
             #[cfg(target_family = "windows")]
             Err(e) if e.kind() == io::ErrorKind::PermissionDenied => -1,
+            #[cfg(target_family = "windows")]
+            Err(e) if e.kind().to_string() == "uncategorized error"   => -1,
             Err(e) => panic!("unexpected error: {:?}", e),
         })
         .sum();
