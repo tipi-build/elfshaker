@@ -69,9 +69,8 @@ pub struct AtomicCreateFile<'l> {
 /// a file can be locked, but unlinked.
 #[cfg(target_family = "windows")]
 fn lock_name(name: &Path, fd: &File) -> io::Result<()> {
-  //let  f = File::open(name)?;
-  fd.try_lock_exclusive()?;
   let  f = File::open(name)?;
+  fd.try_lock_exclusive()?;
   let i0 = Handle::from_file(f)?;
   let i1 = Handle::from_path(name)?;
 
@@ -256,7 +255,7 @@ mod tests {
         .into_iter()
         .map(|r| match r {
             Ok(_) => 1,
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => -1,
+            //Err(e) if e.kind() == io::ErrorKind::WouldBlock => -1,
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => -1,
             #[cfg(target_family = "windows")]
             Err(e) if e.kind() == io::ErrorKind::PermissionDenied => -1,
@@ -271,6 +270,13 @@ mod tests {
 
         fs::remove_file(&p)?;
         let (n_success, n_fail) = (1, n_total - 1);
+
+        println!("{}",n_success);
+        println!("{}",n_fail);
+        println!("{}",result);
+
+
+
         // Test that we see exactly one success and the rest as failures.
         assert_eq!((n_success * 1) + (n_fail * -1), result);
 
