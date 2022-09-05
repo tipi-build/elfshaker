@@ -230,6 +230,7 @@ mod tests {
 
     use super::*;
 
+#[cfg(target_family = "unix")]
     #[test]
     fn test_atomic_update_api() -> Result<(), Box<dyn Error>> {
         let mut dir = env::temp_dir();
@@ -264,7 +265,6 @@ mod tests {
         let (n_success, n_fail) = (1, n_total - 1);
         // Test that we see exactly one success and the rest as failures.
         assert_eq!((n_success * 1) + (n_fail * -1), result);
-
         Ok(())
     }
 }
