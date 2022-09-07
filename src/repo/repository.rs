@@ -732,11 +732,15 @@ impl Repository {
         let data_dir = self.path.join(&*Self::data_dir());
         let snapshot_string = format!("{}\n", snapshot_id);
         ensure_dir(&self.temp_dir())?;
+
+        #[cfg(target_family = "windows")]
+        let snapshot_string = Self::replace_back_to_slash(&snapshot_string);
         write_file_atomic(
             snapshot_string.as_bytes(),
             &self.temp_dir(),
             &data_dir.join(HEAD_FILE),
         )?;
+
         Ok(())
     }
 
