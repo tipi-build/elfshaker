@@ -550,6 +550,9 @@ impl Repository {
                 ObjectMetadata {
                     offset: LOOSE_OBJECT_OFFSET,
                     size: buf.len() as u64,
+                    #[cfg(target_family = "windows")]
+                    last_modified: FileTime::from_last_modification_time(&metadata).seconds()-11644473600,
+                    #[cfg(target_family = "unix")]
                     last_modified: FileTime::from_last_modification_time(&metadata).seconds(),
                     last_modified_nanos: FileTime::from_last_modification_time(&metadata).nanoseconds(),
                 },
