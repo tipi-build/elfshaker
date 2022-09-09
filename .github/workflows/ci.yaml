@@ -76,7 +76,7 @@ jobs:
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
           cargo test --verbose
-          zip elfshaker-macos.zip ./target/release/elfshaker
+          zip -j elfshaker-macos.zip ./target/release/elfshaker
       - uses: actions/upload-artifact@v3
         with:
           name: elfshaker_macos_artifact
@@ -110,7 +110,7 @@ jobs:
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
           cargo test --verbose
-          zip elfshaker-linux.zip ./target/release/elfshaker
+          zip -j elfshaker-linux.zip ./target/release/elfshaker
       - uses: actions/upload-artifact@v3
         with:
           name: elfshaker_linux_artifact
