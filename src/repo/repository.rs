@@ -36,6 +36,10 @@ use crate::{
     packidx::{ObjectMetadata, LOOSE_OBJECT_OFFSET},
 };
 
+#[cfg(target_family = "unix")]
+use std::os::unix::fs::PermissionsExt;
+
+
 /// A struct specifying the the extract options.
 #[derive(Clone, Debug)]
 pub struct ExtractOptions {
@@ -543,7 +547,6 @@ impl Repository {
             hasher.input(&buf);
             hasher.result(&mut checksum);
             self.write_loose_object(&*buf, &temp_dir, &checksum)?;
-
             Ok(FileEntry::new(
                 file_path.into(),
                 checksum,
@@ -555,6 +558,11 @@ impl Repository {
                     #[cfg(target_family = "unix")]
                     last_modified: FileTime::from_last_modification_time(&metadata).seconds(),
                     last_modified_nanos: FileTime::from_last_modification_time(&metadata).nanoseconds(),
+                    #[cfg(target_family = "unix")]
+                    bits_mods: metadata.permissions().mode(),
+                    #[cfg(target_family = "windows")]
+                    bits_mods: 0o777,
+
                 },
             ))
         })
@@ -800,6 +808,8 @@ impl Repository {
             })?;
             set_file_mtime(&dest_path.parent().unwrap(),FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
             set_file_mtime(&dest_path,FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
+            #[cfg(target_family = "unix")]
+            fs::set_permissions(&dest_path, fs::Permissions::from_mode(entry.metadata.bits_mods)).unwrap();
         }
 
         if verify {
@@ -1074,6 +1084,7 @@ mod tests {
         offset: LOOSE_OBJECT_OFFSET,
         last_modified: 0,
         last_modified_nanos: 0,
+        bits_mods: 0,
 
     };
 

@@ -33,6 +33,9 @@ use super::{algo::run_in_parallel, constants::DOT_PACK_INDEX_EXTENSION};
 use crate::packidx::{FileEntry, ObjectChecksum, PackError};
 use crate::{log::measure_ok, packidx::ObjectMetadata};
 
+#[cfg(target_family = "unix")]
+use std::os::unix::fs::PermissionsExt;
+
 /// Pack and snapshots IDs can contain latin letter, digits or the following characters.
 const EXTRA_ID_CHARS: &[char] = &['-', '_', '/'];
 
@@ -496,13 +499,15 @@ fn verify_object(buf: &[u8], exp_checksum: &ObjectChecksum) -> Result<(), Error>
 
 /// Writes the object to the specified path, taking care
 /// of adjusting file permissions.
-fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:u32 ) -> Result<(), Error> {
+fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:u32, bits_mods:u32 ) -> Result<(), Error> {
     fs::create_dir_all(path.parent().unwrap())?;
     let mut f = create_file(path)?;
     f.write_all(buf)?;
 
     set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(last_modified, last_modified_nanos))?;    
-    set_file_mtime(&path,FileTime::from_unix_time(last_modified, last_modified_nanos))?;   
+    set_file_mtime(&path,FileTime::from_unix_time(last_modified, last_modified_nanos))?; 
+    #[cfg(target_family = "unix")]
+    fs::set_permissions(path, fs::Permissions::from_mode(bits_mods)).unwrap();
     Ok(())
 }
 
@@ -557,6 +562,7 @@ fn assign_to_frames(
                 size: entry.metadata.size,
                 last_modified: entry.metadata.last_modified,
                 last_modified_nanos: entry.metadata.last_modified_nanos,
+                bits_mods:entry.metadata.bits_mods,
             },
         );
         frames[frame_index].push(local_entry);
@@ -670,7 +676,7 @@ fn extract_files(
             path_buf.clear();
             path_buf.push(&output_dir);
             path_buf.push(&entry.path);
-            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf, entry.metadata.last_modified, entry.metadata.last_modified_nanos))?
+            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf, entry.metadata.last_modified, entry.metadata.last_modified_nanos,entry.metadata.bits_mods))?
                 .0
                 .as_secs_f64();
         }
@@ -687,8 +693,8 @@ fn extract_files(
 mod tests {
     use super::*;
 
-    fn make_md(offset: u64, size: u64, last_modified: i64, last_modified_nanos: u32) -> ObjectMetadata {
-        ObjectMetadata { offset, size, last_modified, last_modified_nanos }
+    fn make_md(offset: u64, size: u64, last_modified: i64, last_modified_nanos: u32,bits_mods:u32) -> ObjectMetadata {
+        ObjectMetadata { offset, size, last_modified, last_modified_nanos,bits_mods }
     }
 
     #[test]
@@ -730,8 +736,8 @@ mod tests {
             decompressed_size: 1000,
         }];
         let entries = [
-            FileEntry::new("A".into(), [0; 20], make_md(50, 1,0,0)),
-            FileEntry::new("B".into(), [1; 20], make_md(50, 1,0,0)),
+            FileEntry::new("A".into(), [0; 20], make_md(50, 1,0,0,0)),
+            FileEntry::new("B".into(), [1; 20], make_md(50, 1,0,0,0)),
         ];
         let result = assign_to_frames(&frames, &entries).unwrap();
         assert_eq!(1, result.len());
@@ -750,16 +756,16 @@ mod tests {
             },
         ];
         let entries = [
-            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0)),
-            FileEntry::new("B".into(), [1; 20], make_md(1200, 200,0,0)),
+            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0,0)),
+            FileEntry::new("B".into(), [1; 20], make_md(1200, 200,0,0,0)),
         ];
         let frame_1_entries = [
             // Offset is same
-            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0)),
+            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0,0)),
         ];
         let frame_2_entries = [
             // Offset 1200 -> 200
-            FileEntry::new("B".into(), [1; 20], make_md(200, 200,0,0)),
+            FileEntry::new("B".into(), [1; 20], make_md(200, 200,0,0,0)),
         ];
         let result = assign_to_frames(&frames, &entries).unwrap();
         assert_eq!(2, result.len());
