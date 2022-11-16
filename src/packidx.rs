@@ -22,6 +22,7 @@ use std::io::{BufReader, BufWriter, Read, Write};
 use std::iter::FromIterator;
 use std::ops::ControlFlow;
 use std::path::Path;
+use std::path::PathBuf;
 
 /// Error type used in the packidx module.
 #[derive(Debug)]
@@ -265,13 +266,16 @@ impl FileEntry {
     }
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct ObjectMetadata {
     pub offset: u64,
     pub size: u64,
     pub last_modified: i64,
     pub last_modified_nanos: u32,
     pub bits_mods : u32,
+    pub is_symlink_file :bool,
+    pub symlink_target : PathBuf,
+
 }
 
 /// Contains the metadata needed to extract files from a pack file.
@@ -370,12 +374,12 @@ impl PackIndex {
                 .object_pool
                 .lookup(handle.object)
                 .ok_or(PackError::ObjectNotFound)?,
-            metadata: *self.object_metadata.get(&handle.object).unwrap(),
+            metadata: self.object_metadata.get(&handle.object).unwrap().clone(),
         })
     }
     pub fn entry_to_handle(&mut self, entry: &FileEntry) -> Result<FileHandle, PackError> {
         let object_handle = self.object_pool.get_or_insert(&entry.checksum);
-        self.object_metadata.insert(object_handle, entry.metadata);
+        self.object_metadata.insert(object_handle, entry.metadata.clone());
         Ok(FileHandle {
             path: self.path_pool.get_or_insert(&entry.path),
             object: object_handle,

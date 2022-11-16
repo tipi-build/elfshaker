@@ -523,6 +523,7 @@ impl Repository {
         Cow::Borrowed(REPO_DIR)
     }
 
+
     pub fn create_snapshot<I, P>(&mut self, snapshot: &SnapshotId, files: I) -> Result<(), Error>
     where
         I: Iterator<Item = P>,
@@ -548,16 +549,14 @@ impl Repository {
             self.write_loose_object(&*buf, &temp_dir, &checksum)?;
 
             let is_symlink_files = file_path.is_symlink();
-            let symlinks_target;
             let metadata;
-
-
+            let symlink_target;
             if is_symlink_files{
                 metadata = fs::symlink_metadata(&file_path).unwrap();
-                symlinks_target = fs::read_link(&file_path)?;
+                symlink_target = fs::read_link(&file_path)?;
             }else{
                 metadata = fs::metadata(&file_path).unwrap();
-                symlinks_target = PathBuf::new();
+                symlink_target = file_path.clone();
             }
 
             Ok(FileEntry::new(
@@ -575,6 +574,8 @@ impl Repository {
                     bits_mods: metadata.permissions().mode(),
                     #[cfg(target_family = "windows")]
                     bits_mods: 0o777,
+                    is_symlink_file: is_symlink_files,
+                    symlink_target: symlink_target,
 
                 },
             ))
@@ -1059,14 +1060,19 @@ fn is_elfshaker_data_path(p: &Path) -> bool {
 mod tests {
     use super::*;
 
-    static EXAMPLE_MD: ObjectMetadata = ObjectMetadata {
-        size: 1,
-        offset: LOOSE_OBJECT_OFFSET,
-        last_modified: 0,
-        last_modified_nanos: 0,
-        bits_mods: 0,
+    pub fn get_example_md () -> ObjectMetadata{
+        let example_md: ObjectMetadata = ObjectMetadata {
+            size: 1,
+            offset: LOOSE_OBJECT_OFFSET,
+            last_modified: 0,
+            last_modified_nanos: 0,
+            bits_mods: 0,
+            is_symlink_file: false,
+            symlink_target:  Path::new("/test/haha/foo.txt").to_path_buf(),
 
-    };
+        };
+        return example_md
+    }
 
     #[test]
     fn building_loose_object_paths_works() {
@@ -1113,8 +1119,8 @@ mod tests {
         let path = "/path/to/A";
         let old_checksum = [0; 20];
         let new_checksum = [1; 20];
-        let old_entries = [FileEntry::new(path.into(), old_checksum, EXAMPLE_MD)];
-        let new_entries = [FileEntry::new(path.into(), new_checksum, EXAMPLE_MD)];
+        let old_entries = [FileEntry::new(path.into(), old_checksum, get_example_md().clone())];
+        let new_entries = [FileEntry::new(path.into(), new_checksum, get_example_md().clone())];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(1, added.len());
         assert_eq!(path, added[0].path);
@@ -1130,13 +1136,13 @@ mod tests {
         let path_b_old_checksum = [0; 20];
         let path_a_new_checksum = [1; 20];
         let old_entries = [
-            FileEntry::new(path_a.into(), path_a_old_checksum, EXAMPLE_MD),
-            FileEntry::new(path_b.into(), path_b_old_checksum, EXAMPLE_MD),
+            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone()),
+            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone()),
         ];
         let new_entries = [FileEntry::new(
             path_a.into(),
             path_a_new_checksum,
-            EXAMPLE_MD,
+            get_example_md().clone(),
         )];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(1, added.len());
@@ -1155,12 +1161,12 @@ mod tests {
         let path_b_old_checksum = [1; 20];
         let path_b_new_checksum = [0; 20];
         let old_entries = [
-            FileEntry::new(path_a.into(), path_a_old_checksum, EXAMPLE_MD),
-            FileEntry::new(path_b.into(), path_b_old_checksum, EXAMPLE_MD),
+            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone()),
+            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone()),
         ];
         let new_entries = [
-            FileEntry::new(path_a.into(), path_a_new_checksum, EXAMPLE_MD),
-            FileEntry::new(path_b.into(), path_b_new_checksum, EXAMPLE_MD),
+            FileEntry::new(path_a.into(), path_a_new_checksum, get_example_md().clone()),
+            FileEntry::new(path_b.into(), path_b_new_checksum, get_example_md().clone()),
         ];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(2, added.len());

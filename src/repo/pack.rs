@@ -8,8 +8,6 @@ use std::{
     io,
     io::{BufReader, Read, Write},
     path::{Path, PathBuf},
-    time::SystemTime,
-
 };
 use std::{fmt::Display, str::FromStr};
 
@@ -35,6 +33,12 @@ use crate::{log::measure_ok, packidx::ObjectMetadata};
 
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::PermissionsExt;
+
+#[cfg(target_family = "windows")]
+use std::os::windows::fs::symlink_file;
+
+#[cfg(target_family = "unix")]
+use std::os::unix::fs::symlink;
 
 /// Pack and snapshots IDs can contain latin letter, digits or the following characters.
 const EXTRA_ID_CHARS: &[char] = &['-', '_', '/'];
@@ -499,10 +503,18 @@ fn verify_object(buf: &[u8], exp_checksum: &ObjectChecksum) -> Result<(), Error>
 
 /// Writes the object to the specified path, taking care
 /// of adjusting file permissions.
-fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:u32, bits_mods:u32 ) -> Result<(), Error> {
+fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:u32, bits_mods:u32, is_symlink:bool, symlink_target:PathBuf ) -> Result<(), Error> {
     fs::create_dir_all(path.parent().unwrap())?;
-    let mut f = create_file(path)?;
-    f.write_all(buf)?;
+
+    if is_symlink{
+        #[cfg(target_family = "windows")]
+        symlink_file(symlink_target, path)?;
+        #[cfg(target_family = "unix")]
+        symlink(symlink_target, path)?;
+    }else{
+        let mut f = create_file(path)?;
+        f.write_all(buf)?;
+    }
 
     set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(last_modified, last_modified_nanos))?;    
     set_file_mtime(&path,FileTime::from_unix_time(last_modified, last_modified_nanos))?; 
@@ -563,6 +575,8 @@ fn assign_to_frames(
                 last_modified: entry.metadata.last_modified,
                 last_modified_nanos: entry.metadata.last_modified_nanos,
                 bits_mods:entry.metadata.bits_mods,
+                is_symlink_file: entry.metadata.is_symlink_file,
+                symlink_target: entry.metadata.symlink_target.clone(),
             },
         );
         frames[frame_index].push(local_entry);
@@ -676,7 +690,7 @@ fn extract_files(
             path_buf.clear();
             path_buf.push(&output_dir);
             path_buf.push(&entry.path);
-            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf, entry.metadata.last_modified, entry.metadata.last_modified_nanos,entry.metadata.bits_mods))?
+            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf, entry.metadata.last_modified, entry.metadata.last_modified_nanos,entry.metadata.bits_mods,entry.metadata.is_symlink_file,entry.metadata.symlink_target))?
                 .0
                 .as_secs_f64();
         }
@@ -693,8 +707,8 @@ fn extract_files(
 mod tests {
     use super::*;
 
-    fn make_md(offset: u64, size: u64, last_modified: i64, last_modified_nanos: u32,bits_mods:u32) -> ObjectMetadata {
-        ObjectMetadata { offset, size, last_modified, last_modified_nanos,bits_mods }
+    fn make_md(offset: u64, size: u64, last_modified: i64, last_modified_nanos: u32,bits_mods:u32,is_symlink_file:bool,symlink_target:PathBuf) -> ObjectMetadata {
+        ObjectMetadata { offset, size, last_modified, last_modified_nanos,bits_mods,is_symlink_file,symlink_target }
     }
 
     #[test]
@@ -736,8 +750,8 @@ mod tests {
             decompressed_size: 1000,
         }];
         let entries = [
-            FileEntry::new("A".into(), [0; 20], make_md(50, 1,0,0,0)),
-            FileEntry::new("B".into(), [1; 20], make_md(50, 1,0,0,0)),
+            FileEntry::new("A".into(), [0; 20], make_md(50, 1,0,0,0,false,"A".into())),
+            FileEntry::new("B".into(), [1; 20], make_md(50, 1,0,0,0,false,"B".into())),
         ];
         let result = assign_to_frames(&frames, &entries).unwrap();
         assert_eq!(1, result.len());
@@ -756,16 +770,16 @@ mod tests {
             },
         ];
         let entries = [
-            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0,0)),
-            FileEntry::new("B".into(), [1; 20], make_md(1200, 200,0,0,0)),
+            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0,0,false,"A".into())),
+            FileEntry::new("B".into(), [1; 20], make_md(1200, 200,0,0,0,false,"B".into())),
         ];
         let frame_1_entries = [
             // Offset is same
-            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0,0)),
+            FileEntry::new("A".into(), [0; 20], make_md(800, 200,0,0,0,false,"A".into())),
         ];
         let frame_2_entries = [
             // Offset 1200 -> 200
-            FileEntry::new("B".into(), [1; 20], make_md(200, 200,0,0,0)),
+            FileEntry::new("B".into(), [1; 20], make_md(200, 200,0,0,0,false,"B".into())),
         ];
         let result = assign_to_frames(&frames, &entries).unwrap();
         assert_eq!(2, result.len());
