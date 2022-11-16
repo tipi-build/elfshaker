@@ -540,13 +540,26 @@ impl Repository {
             #[cfg(target_family = "windows")]
             let file_path = Self::replace_back_to_slash(&file_path.as_os_str().to_str().unwrap().to_string());
 
-            let metadata = fs::metadata(&file_path).unwrap();
             let buf = fs::read(&file_path)?;
             let mut checksum = [0u8; 20];
             let mut hasher = Sha1::new();
             hasher.input(&buf);
             hasher.result(&mut checksum);
             self.write_loose_object(&*buf, &temp_dir, &checksum)?;
+
+            let is_symlink_files = file_path.is_symlink();
+            let symlinks_target;
+            let metadata;
+
+
+            if is_symlink_files{
+                metadata = fs::symlink_metadata(&file_path).unwrap();
+                symlinks_target = fs::read_link(&file_path)?;
+            }else{
+                metadata = fs::metadata(&file_path).unwrap();
+                symlinks_target = PathBuf::new();
+            }
+
             Ok(FileEntry::new(
                 file_path.into(),
                 checksum,
@@ -1002,7 +1015,6 @@ impl Repository {
 
 /// Cleans the list of file paths relative to the repository root,
 /// and skips any paths pointing into the repository data directory.
-#[cfg(target_family = "windows")]
 fn clean_file_list<P>(
     _repo_dir: &Path,
     files: impl Iterator<Item = P>,
@@ -1033,38 +1045,6 @@ where
     Ok(files)
 }
 
-#[cfg(target_family = "unix")]
-fn clean_file_list<P>(
-    repo_dir: &Path,
-    files: impl Iterator<Item = P>,
-) -> io::Result<impl Iterator<Item = PathBuf>>
-where
-    P: AsRef<Path>,
-{
-    let files = 
-    files.flat_map(|p| {
-            if p.as_ref().is_relative() {
-                Ok(p)
-            } else {
-                Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    format!("Expected a relative path, got {:?}!", p.as_ref()),
-                ))
-            }
-        })
-        .map(|p| {
-            Ok( p.as_ref()
-                .canonicalize()?
-                .components()
-                .skip(repo_dir.components().count())
-                .collect::<PathBuf>()
-            )
-        })
-        .collect::<io::Result<Vec<PathBuf>>>()?
-        .into_iter()
-       .filter(|p| !is_elfshaker_data_path(p));    
-    Ok(files)
-}
 
 /// Checks if the relative path is rooted at the data directory.
 fn is_elfshaker_data_path(p: &Path) -> bool {
