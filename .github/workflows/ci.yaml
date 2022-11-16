@@ -7,7 +7,7 @@ on:
       - develop
   pull_request:
 env:
-  version_in_development: v0.0.2
+  version_in_development: v0.0.3
 
 jobs:
   draft-release:
@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Create Release
         id: draft_release
-        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/support-windows'
+        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/support-windows' || github.head_ref == 'feature/support-permission-symlinks'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
