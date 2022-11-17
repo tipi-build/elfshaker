@@ -36,6 +36,8 @@ use std::os::unix::fs::PermissionsExt;
 
 #[cfg(target_family = "windows")]
 use std::os::windows::fs::symlink_file;
+#[cfg(target_family = "windows")]
+use std::os::windows::fs::symlink_dir;
 
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::symlink;
@@ -501,6 +503,21 @@ fn verify_object(buf: &[u8], exp_checksum: &ObjectChecksum) -> Result<(), Error>
     Ok(())
 }
 
+#[cfg(target_family = "windows")]
+fn create_symlink_safety(path: &Path,symlink_target:&PathBuf)-> Result<(), Error> {
+    if symlink_target.is_file() {
+        symlink_file(symlink_target, path)?;
+    } else if symlink_target.is_dir() {
+        symlink_dir(symlink_target, path)?;
+    } else {
+        let mut _f = create_file(symlink_target)?;
+        symlink_file(symlink_target, path)?;
+        fs::remove_file(symlink_target)?;
+    }
+    Ok(())
+
+}
+
 /// Writes the object to the specified path, taking care
 /// of adjusting file permissions.
 fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:u32, bits_mods:u32, is_symlink:bool, symlink_target:PathBuf ) -> Result<(), Error> {
@@ -508,7 +525,7 @@ fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:
 
     if is_symlink{
         #[cfg(target_family = "windows")]
-        symlink_file(symlink_target, path)?;
+        create_symlink_safety(path,&symlink_target)?;
         #[cfg(target_family = "unix")]
         symlink(symlink_target, path)?;
     }else{
