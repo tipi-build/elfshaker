@@ -550,7 +550,6 @@ impl Repository {
 
             //let path = Path::new(&file_path);
             let is_symlink_files = Path::new(&file_path).is_symlink();
-
             let metadata;
             let symlink_target;
             if is_symlink_files{
@@ -558,8 +557,9 @@ impl Repository {
                 symlink_target = fs::read_link(&file_path)?;
             }else{
                 metadata = fs::metadata(&file_path).unwrap();
-                symlink_target = Path::new(&file_path).to_path_buf().clone();
+                symlink_target = Path::new("").to_path_buf();
             }
+
 
             Ok(FileEntry::new(
                 file_path.into(),

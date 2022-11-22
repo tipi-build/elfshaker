@@ -518,16 +518,27 @@ fn create_symlink_safety(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
 
 }
 
+#[cfg(target_family = "unix")]
+fn create_symlink_safety(path: &Path,symlink_target:&PathBuf)-> Result<(), Error> {
+    if symlink_target.is_file() {
+        symlink(symlink_target, path)?;
+    } else {
+        let mut _f = create_file(symlink_target)?;
+        symlink(symlink_target, path)?;
+        fs::remove_file(symlink_target)?;
+    }
+    Ok(())
+
+}
+
+
 /// Writes the object to the specified path, taking care
 /// of adjusting file permissions.
 fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:u32, bits_mods:u32, is_symlink:bool, symlink_target:PathBuf ) -> Result<(), Error> {
     fs::create_dir_all(path.parent().unwrap())?;
-
-    if is_symlink{
-        #[cfg(target_family = "windows")]
+    
+    if is_symlink && symlink_target.as_os_str().is_empty() {
         create_symlink_safety(path,&symlink_target)?;
-        #[cfg(target_family = "unix")]
-        symlink(symlink_target, path)?;
     }else{
         let mut f = create_file(path)?;
         f.write_all(buf)?;
