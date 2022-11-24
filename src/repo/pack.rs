@@ -503,29 +503,21 @@ fn verify_object(buf: &[u8], exp_checksum: &ObjectChecksum) -> Result<(), Error>
     Ok(())
 }
 
-#[cfg(target_family = "windows")]
-fn create_symlink_safety(path: &Path,symlink_target:&PathBuf)-> Result<(), Error> {
+fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error> {
     if symlink_target.is_file() {
+        #[cfg(target_family = "windows")]
         symlink_file(symlink_target, path)?;
-    } else if symlink_target.is_dir() {
-        symlink_dir(symlink_target, path)?;
-    } else {
-        let mut _f = create_file(symlink_target)?;
-        symlink_file(symlink_target, path)?;
-        fs::remove_file(symlink_target)?;
-    }
-    Ok(())
-
-}
-
-#[cfg(target_family = "unix")]
-fn create_symlink_safety(path: &Path,symlink_target:&PathBuf)-> Result<(), Error> {
-    if symlink_target.is_file() {
+        #[cfg(target_family = "unix")]
         symlink(symlink_target, path)?;
     } else {
         let mut _f = create_file(symlink_target)?;
-        symlink(symlink_target, path)?;
+
+        #[cfg(target_family = "windows")]
+        let result_symlink = symlink_file(symlink_target, path)?;
+        #[cfg(target_family = "unix")]
+        let result_symlink = symlink(symlink_target, path);
         fs::remove_file(symlink_target)?;
+        result_symlink?;
     }
     Ok(())
 
@@ -538,7 +530,7 @@ fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:
     fs::create_dir_all(path.parent().unwrap())?;
     
     if is_symlink && symlink_target.as_os_str().is_empty() {
-        create_symlink_safety(path,&symlink_target)?;
+        create_symlink_safely(path,&symlink_target)?;
     }else{
         let mut f = create_file(path)?;
         f.write_all(buf)?;
