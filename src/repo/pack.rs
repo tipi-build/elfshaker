@@ -526,20 +526,20 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
 
 /// Writes the object to the specified path, taking care
 /// of adjusting file permissions.
-fn write_object(buf: &[u8], path: &Path, last_modified:i64, last_modified_nanos:u32, bits_mods:u32, is_symlink:bool, symlink_target:PathBuf ) -> Result<(), Error> {
+fn write_object(buf: &[u8], path: &Path, metadata: &ObjectMetadata) -> Result<(), Error> {
     fs::create_dir_all(path.parent().unwrap())?;
     
-    if is_symlink && symlink_target.as_os_str().is_empty() {
-        create_symlink_safely(path,&symlink_target)?;
+    if metadata.is_symlink_file && metadata.symlink_target.as_os_str().is_empty() {
+        create_symlink_safely(path,&metadata.symlink_target)?;
     }else{
         let mut f = create_file(path)?;
         f.write_all(buf)?;
     }
 
-    set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(last_modified, last_modified_nanos))?;    
-    set_file_mtime(&path,FileTime::from_unix_time(last_modified, last_modified_nanos))?; 
+    set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?;    
+    set_file_mtime(&path,FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?; 
     #[cfg(target_family = "unix")]
-    fs::set_permissions(path, fs::Permissions::from_mode(bits_mods)).unwrap();
+    fs::set_permissions(path, fs::Permissions::from_mode(metadata.bits_mods)).unwrap();
     Ok(())
 }
 
@@ -710,7 +710,7 @@ fn extract_files(
             path_buf.clear();
             path_buf.push(&output_dir);
             path_buf.push(&entry.path);
-            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf, entry.metadata.last_modified, entry.metadata.last_modified_nanos,entry.metadata.bits_mods,entry.metadata.is_symlink_file,entry.metadata.symlink_target))?
+            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf, &entry.metadata))?
                 .0
                 .as_secs_f64();
         }
