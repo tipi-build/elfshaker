@@ -549,10 +549,10 @@ impl Repository {
             self.write_loose_object(&*buf, &temp_dir, &checksum)?;
 
             //let path = Path::new(&file_path);
-            let is_symlink_files = Path::new(&file_path).is_symlink();
+            let is_symlink_file = Path::new(&file_path).is_symlink();
             let metadata;
             let symlink_target;
-            if is_symlink_files{
+            if is_symlink_file{
                 metadata = fs::symlink_metadata(&file_path).unwrap();
                 symlink_target = fs::read_link(&file_path)?;
             }else{
@@ -576,7 +576,7 @@ impl Repository {
                     bits_mods: metadata.permissions().mode(),
                     #[cfg(target_family = "windows")]
                     bits_mods: 0o777,
-                    is_symlink_file: is_symlink_files,
+                    is_symlink_file: is_symlink_file,
                     symlink_target: symlink_target,
 
                 },
