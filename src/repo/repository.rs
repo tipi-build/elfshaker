@@ -605,19 +605,8 @@ impl Repository {
     #[cfg(target_family = "windows")]
     pub fn replace_back_to_slash(a: &str)-> String {
         let  file_path_replaced = a.replace(r"\","/");
-    
-        let mut is_cr = false;
-        for b in file_path_replaced.bytes() {
-            if b == 13 {
-                is_cr = true;
-            }
-        }
-        let mut file_path_replacedop: &str = &file_path_replaced;
-
-        if is_cr == true {
-            file_path_replacedop = &file_path_replaced[0..file_path_replaced.len() - 1];
-        }
-
+        let file_path_replacedop: &str = &file_path_replaced;
+        file_path_replacedop.trim_end_matches('\r');
         return file_path_replacedop.to_string();
     }
 
