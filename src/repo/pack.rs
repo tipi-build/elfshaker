@@ -25,7 +25,7 @@ use super::constants::{
     DEFAULT_WINDOW_LOG_MAX, PACKS_DIR, PACK_EXTENSION, PACK_HEADER_MAGIC, PACK_INDEX_EXTENSION,
 };
 use super::error::Error;
-use super::fs::{create_file, open_file};
+use super::fs::{open_file};
 use super::repository::Repository;
 use super::{algo::run_in_parallel, constants::DOT_PACK_INDEX_EXTENSION};
 use crate::packidx::{FileEntry, ObjectChecksum, PackError};
@@ -36,8 +36,6 @@ use std::os::unix::fs::PermissionsExt;
 
 #[cfg(target_family = "windows")]
 use std::os::windows::fs::symlink_file;
-#[cfg(target_family = "windows")]
-use std::os::windows::fs::symlink_dir;
 
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::symlink;
@@ -517,7 +515,7 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
         let f = AtomicCreateFile::new(&symlink_target)?;
         f.target.lock_exclusive()?;
         #[cfg(target_family = "windows")]
-        let result_symlink = symlink_file(symlink_target, path)?;
+        let result_symlink = symlink_file(symlink_target, path);
         #[cfg(target_family = "unix")]
         let result_symlink = symlink(symlink_target, path);
         fs::remove_file(symlink_target)?;

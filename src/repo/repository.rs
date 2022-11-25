@@ -606,8 +606,8 @@ impl Repository {
     pub fn replace_back_to_slash(a: &str)-> String {
         let  file_path_replaced = a.replace(r"\","/");
         let file_path_replacedop: &str = &file_path_replaced;
-        file_path_replacedop.trim_end_matches('\r');
-        return file_path_replacedop.to_string();
+        let file_path_trim = file_path_replacedop.trim_end_matches('\r');
+        return file_path_trim.to_string();
     }
 
     /// Creates a pack file.
