@@ -59,9 +59,9 @@ use std::os::unix::fs::MetadataExt;
 /// given path `p` is an empty file with no lock held. In that case, the file is
 /// deleted with the lock held so the name can be reused.
 pub struct AtomicCreateFile<'l> {
-    path: &'l Path,
-    temp: (PathBuf, File),
-    target: File,
+    pub path: &'l Path,
+    pub temp: (PathBuf, File),
+    pub target: File,
 }
 
 /// lock_name acquires a lock on the given `fd`, and ensures that the

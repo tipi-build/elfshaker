@@ -42,6 +42,9 @@ use std::os::windows::fs::symlink_dir;
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::symlink;
 
+use fs2::FileExt;
+use crate::atomicfile::AtomicCreateFile;
+
 /// Pack and snapshots IDs can contain latin letter, digits or the following characters.
 const EXTRA_ID_CHARS: &[char] = &['-', '_', '/'];
 
@@ -464,6 +467,7 @@ impl Pack {
             tasks.into_iter(),
             |(frame_reader, entries)| extract_files(frame_reader, &entries, &output_dir, verify),
         );
+
         // Collect stats
         let stats = results
             .into_iter()
@@ -510,8 +514,8 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
         #[cfg(target_family = "unix")]
         symlink(symlink_target, path)?;
     } else {
-        let mut _f = create_file(symlink_target)?;
-
+        let f = AtomicCreateFile::new(&symlink_target)?;
+        f.target.lock_exclusive()?;
         #[cfg(target_family = "windows")]
         let result_symlink = symlink_file(symlink_target, path)?;
         #[cfg(target_family = "unix")]
@@ -529,11 +533,12 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
 fn write_object(buf: &[u8], path: &Path, metadata: &ObjectMetadata) -> Result<(), Error> {
     fs::create_dir_all(path.parent().unwrap())?;
     
-    if metadata.is_symlink_file && metadata.symlink_target.as_os_str().is_empty() {
+    if metadata.is_symlink_file && !metadata.symlink_target.as_os_str().is_empty() {
         create_symlink_safely(path,&metadata.symlink_target)?;
     }else{
-        let mut f = create_file(path)?;
-        f.write_all(buf)?;
+        let mut f = AtomicCreateFile::new(&path)?;
+        f.target.lock_exclusive()?;
+        f.target.write_all(buf)?;
     }
 
     set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?;    
