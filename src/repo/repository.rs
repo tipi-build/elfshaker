@@ -1059,7 +1059,7 @@ mod tests {
             last_modified_nanos: 0,
             bits_mods: 0,
             is_symlink_file: false,
-            symlink_target:  Path::new("/test/haha/foo.txt").to_path_buf(),
+            symlink_target: PathBuf::new(),
 
         };
         return example_md
