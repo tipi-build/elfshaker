@@ -524,7 +524,7 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
         #[cfg(target_family = "windows")]
         f.target.try_lock_exclusive();
         #[cfg(target_family = "unix")]
-        f.target.f.target.lock_exclusive()?;
+        f.target.lock_exclusive()?;
 
 
         #[cfg(target_family = "windows")]
@@ -560,7 +560,7 @@ fn write_object(buf: &[u8], path: &Path, metadata: &ObjectMetadata) -> Result<()
             #[cfg(target_family = "windows")]
             f.target.try_lock_exclusive();
             #[cfg(target_family = "unix")]
-            f.target.f.target.lock_exclusive()?;
+            f.target.lock_exclusive()?;
             f.target.write_all(buf)?;
             fs::remove_file(f.temp.0)?;
         }
