@@ -521,7 +521,12 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
         symlink(symlink_target, path)?;
     } else {
         let f = AtomicCreateFile::new(&symlink_target)?;
-        f.target.lock_exclusive()?;
+        #[cfg(target_family = "windows")]
+        f.target.try_lock_exclusive();
+        #[cfg(target_family = "unix")]
+        f.target.f.target.lock_exclusive()?;
+
+
         #[cfg(target_family = "windows")]
         let result_symlink = symlink_file(symlink_target, path);
         #[cfg(target_family = "unix")]
@@ -545,11 +550,17 @@ fn write_object(buf: &[u8], path: &Path, metadata: &ObjectMetadata) -> Result<()
     }else{
         if path.is_file() {
             let mut f = create_file(path)?;
+            #[cfg(target_family = "windows")]
+            f.try_lock_exclusive();
+            #[cfg(target_family = "unix")]
             f.lock_exclusive()?;
             f.write_all(buf)?;
         } else {
             let mut f = AtomicCreateFile::new(&path)?;
-            f.target.lock_exclusive()?;
+            #[cfg(target_family = "windows")]
+            f.target.try_lock_exclusive();
+            #[cfg(target_family = "unix")]
+            f.target.f.target.lock_exclusive()?;
             f.target.write_all(buf)?;
             fs::remove_file(f.temp.0)?;
         }
