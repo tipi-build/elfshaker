@@ -506,6 +506,14 @@ fn verify_object(buf: &[u8], exp_checksum: &ObjectChecksum) -> Result<(), Error>
 }
 
 fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error> {
+    let is_symlink_file_exist = Path::new(&path).is_symlink();
+    if is_symlink_file_exist{
+       let symlink_target_read = fs::read_link(&path)?;
+        if symlink_target_read.as_os_str() == symlink_target.as_os_str() {
+            return Ok(())
+        }
+    }
+
     if symlink_target.is_file() {
         #[cfg(target_family = "windows")]
         symlink_file(symlink_target, path)?;
@@ -531,8 +539,8 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
 /// of adjusting file permissions.
 fn write_object(buf: &[u8], path: &Path, metadata: &ObjectMetadata) -> Result<(), Error> {
     fs::create_dir_all(path.parent().unwrap())?;
-    
-    if metadata.is_symlink_file && !metadata.symlink_target.as_os_str().is_empty() {
+
+    if metadata.is_symlink_file && !metadata.symlink_target.as_os_str().is_empty() && (metadata.symlink_target.file_stem() != path.file_stem()) {
         create_symlink_safely(path,&metadata.symlink_target)?;
     }else{
         if path.is_file() {
@@ -545,12 +553,11 @@ fn write_object(buf: &[u8], path: &Path, metadata: &ObjectMetadata) -> Result<()
             f.target.write_all(buf)?;
             fs::remove_file(f.temp.0)?;
         }
+        set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?; 
+        set_file_mtime(&path,FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?; 
+        #[cfg(target_family = "unix")]
+        fs::set_permissions(path, fs::Permissions::from_mode(metadata.bits_mods)).unwrap();
     }
-
-    set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?;    
-    set_file_mtime(&path,FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?; 
-    #[cfg(target_family = "unix")]
-    fs::set_permissions(path, fs::Permissions::from_mode(metadata.bits_mods)).unwrap();
     Ok(())
 }
 
