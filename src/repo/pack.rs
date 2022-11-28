@@ -25,7 +25,7 @@ use super::constants::{
     DEFAULT_WINDOW_LOG_MAX, PACKS_DIR, PACK_EXTENSION, PACK_HEADER_MAGIC, PACK_INDEX_EXTENSION,
 };
 use super::error::Error;
-use super::fs::{open_file};
+use super::fs::{create_file,open_file};
 use super::repository::Repository;
 use super::{algo::run_in_parallel, constants::DOT_PACK_INDEX_EXTENSION};
 use crate::packidx::{FileEntry, ObjectChecksum, PackError};
@@ -535,11 +535,16 @@ fn write_object(buf: &[u8], path: &Path, metadata: &ObjectMetadata) -> Result<()
     if metadata.is_symlink_file && !metadata.symlink_target.as_os_str().is_empty() {
         create_symlink_safely(path,&metadata.symlink_target)?;
     }else{
-        let mut f = AtomicCreateFile::new(&path)?;
-        f.target.lock_exclusive()?;
-        f.target.write_all(buf)?;
-        fs::remove_file(f.temp.0)?;
-
+        if path.is_file() {
+            let mut f = create_file(path)?;
+            f.lock_exclusive()?;
+            f.write_all(buf)?;
+        } else {
+            let mut f = AtomicCreateFile::new(&path)?;
+            f.target.lock_exclusive()?;
+            f.target.write_all(buf)?;
+            fs::remove_file(f.temp.0)?;
+        }
     }
 
     set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?;    
