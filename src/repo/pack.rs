@@ -519,6 +519,7 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
         #[cfg(target_family = "unix")]
         let result_symlink = symlink(symlink_target, path);
         fs::remove_file(symlink_target)?;
+        fs::remove_file(f.temp.0)?;
         result_symlink?;
     }
     Ok(())
@@ -537,6 +538,8 @@ fn write_object(buf: &[u8], path: &Path, metadata: &ObjectMetadata) -> Result<()
         let mut f = AtomicCreateFile::new(&path)?;
         f.target.lock_exclusive()?;
         f.target.write_all(buf)?;
+        fs::remove_file(f.temp.0)?;
+
     }
 
     set_file_mtime(path.parent().unwrap(),FileTime::from_unix_time(metadata.last_modified, metadata.last_modified_nanos))?;    
