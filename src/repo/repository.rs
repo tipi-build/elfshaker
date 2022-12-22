@@ -538,27 +538,30 @@ impl Repository {
         let threads = num_cpus::get();
 
         let pack_entries = run_in_parallel(threads, files.into_iter(), |file_path| {
-            #[cfg(target_family = "windows")]
             let file_path = Self::replace_back_to_slash(&file_path.as_os_str().to_str().unwrap().to_string());
 
-            let buf = fs::read(&file_path)?;
+            let buf : Vec<u8>;
             let mut checksum = [0u8; 20];
-            let mut hasher = Sha1::new();
-            hasher.input(&buf);
-            hasher.result(&mut checksum);
-            self.write_loose_object(&*buf, &temp_dir, &checksum)?;
-
+            
             //let path = Path::new(&file_path);
             let is_symlink_file = Path::new(&file_path).is_symlink();
             let metadata;
             let symlink_target;
             if is_symlink_file{
+                buf = Self::create_vec_u8_from_string(file_path.clone());
                 metadata = fs::symlink_metadata(&file_path).unwrap();
                 symlink_target = fs::read_link(&file_path)?;
             }else{
+                buf = fs::read(&file_path)?;
                 metadata = fs::metadata(&file_path).unwrap();
                 symlink_target = Path::new("").to_path_buf();
             }
+
+            let mut hasher = Sha1::new();
+            hasher.input(&buf);
+            hasher.result(&mut checksum);
+            self.write_loose_object(&*buf, &temp_dir, &checksum)?;
+
 
 
             Ok(FileEntry::new(
@@ -602,12 +605,19 @@ impl Repository {
         Ok(())
     }
 
-    #[cfg(target_family = "windows")]
     pub fn replace_back_to_slash(a: &str)-> String {
         let  file_path_replaced = a.replace(r"\","/");
         let file_path_replacedop: &str = &file_path_replaced;
         let file_path_trim = file_path_replacedop.trim_end_matches('\r');
         return file_path_trim.to_string();
+    }
+
+    pub fn create_vec_u8_from_string(a: String)-> Vec<u8> {
+        let mut vec = Vec::new();
+        for char_u8 in a.bytes() {
+            vec.push(char_u8);
+        }
+        return vec;
     }
 
     /// Creates a pack file.
