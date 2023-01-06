@@ -466,6 +466,10 @@ impl Pack {
             |(frame_reader, entries)| extract_files(frame_reader, &entries, &output_dir, verify),
         );
 
+        for entry in entries {
+           AtomicCreateFile::prune_stale_file(&entry.path);
+        }
+
         // Collect stats
         let stats = results
             .into_iter()
