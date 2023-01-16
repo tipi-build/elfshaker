@@ -253,29 +253,34 @@ impl Snapshot {
 pub struct FileEntry {
     pub path: OsString,
     pub checksum: ObjectChecksum,
-    pub metadata: ObjectMetadata,
+    pub obj_metadata: ObjectMetadata,
+    pub file_metadata: FileMetadata
 }
 
 impl FileEntry {
-    pub fn new(path: OsString, checksum: ObjectChecksum, metadata: ObjectMetadata) -> Self {
+    pub fn new(path: OsString, checksum: ObjectChecksum, obj_metadata: ObjectMetadata, file_metadata: FileMetadata) -> Self {
         Self {
             path,
             checksum,
-            metadata,
+            obj_metadata,
+            file_metadata
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
-pub struct ObjectMetadata {
-    pub offset: u64,
-    pub size: u64,
+pub struct FileMetadata {
     pub last_modified: i64,
     pub last_modified_nanos: u32,
     pub bits_mods : u32,
     pub is_symlink_file :bool,
-    pub symlink_target : PathBuf,
+    pub symlink_target : PathBuf
+}
 
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+pub struct ObjectMetadata {
+    pub offset: u64,
+    pub size: u64
 }
 
 /// Contains the metadata needed to extract files from a pack file.
@@ -286,6 +291,7 @@ pub struct PackIndex {
     path_pool: EntryPool<OsString>,
     object_pool: EntryPool<ObjectChecksum>,
     object_metadata: BTreeMap<Handle, ObjectMetadata>,
+    file_metadata: BTreeMap<OsString, FileMetadata>,
 
     // When snapshots are pushed, maintain the current state of the filesystem.
     // Not stored on disk.
@@ -308,6 +314,7 @@ impl PackIndex {
             path_pool: EntryPool::new(),
             object_pool: EntryPool::new(),
             object_metadata: BTreeMap::new(),
+            file_metadata: BTreeMap::new(),
 
             current: HashSet::new(),
         }
@@ -364,22 +371,24 @@ impl PackIndex {
         self.object_pool.lookup(h).unwrap()
     }
     pub fn handle_to_entry(&self, handle: &FileHandle) -> Result<FileEntry, PackError> {
+        let entry_path = self.path_pool.lookup(handle.path).ok_or(PackError::PathNotFound(handle.path))?;
+
         Ok(FileEntry {
-            path: self
-                .path_pool
-                .lookup(handle.path)
-                .ok_or(PackError::PathNotFound(handle.path))?
-                .clone(),
+            path: entry_path.clone(),
             checksum: *self
                 .object_pool
                 .lookup(handle.object)
                 .ok_or(PackError::ObjectNotFound)?,
-            metadata: self.object_metadata.get(&handle.object).unwrap().clone(),
+            obj_metadata: self.object_metadata.get(&handle.object).unwrap().clone(),
+            file_metadata: self.file_metadata.get(entry_path).unwrap().clone(),
         })
     }
     pub fn entry_to_handle(&mut self, entry: &FileEntry) -> Result<FileHandle, PackError> {
         let object_handle = self.object_pool.get_or_insert(&entry.checksum);
-        self.object_metadata.insert(object_handle, entry.metadata.clone());
+        self.object_metadata.insert(object_handle, entry.obj_metadata.clone());
+
+        self.file_metadata.insert(entry.path.clone(), entry.file_metadata.clone());
+
         Ok(FileHandle {
             path: self.path_pool.get_or_insert(&entry.path),
             object: object_handle,
@@ -570,6 +579,8 @@ impl<'de> Visitor<'de> for VisitPackIndex {
             .map(|(i, md)| ((i as Handle), md))
             .collect();
 
+        result.file_metadata = next_expecting(&mut seq)?;
+
         Ok(result)
     }
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -604,19 +615,14 @@ impl Serialize for PackIndex {
     where
         S: Serializer,
     {
-        let mut s = serializer.serialize_tuple(5)?;
+        let mut s = serializer.serialize_tuple(6)?;
         s.serialize_element(&self.snapshot_tags)?;
         s.serialize_element(&self.snapshot_deltas)?;
         s.serialize_element(&self.path_pool)?;
         s.serialize_element(&self.object_pool)?;
         // Ordering comes from BTreeMap keys, so is for free.
-        s.serialize_element(
-            &self
-                .object_metadata
-                .values()
-                .cloned()
-                .collect::<Vec<ObjectMetadata>>(),
-        )?;
+        s.serialize_element(&self.object_metadata.values().cloned().collect::<Vec<ObjectMetadata>>())?;
+        s.serialize_element(&self.file_metadata)?;
         s.end()
     }
 }

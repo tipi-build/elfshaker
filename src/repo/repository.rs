@@ -29,7 +29,7 @@ use super::fs::{
 };
 use super::pack::{write_skippable_frame, Pack, PackFrame, PackHeader, PackId, SnapshotId};
 use super::remote;
-use crate::packidx::{FileEntry, ObjectChecksum, PackError, PackIndex};
+use crate::packidx::{FileEntry, ObjectChecksum, PackError, PackIndex, FileMetadata};
 use crate::progress::ProgressReporter;
 use crate::{
     batch,
@@ -562,7 +562,7 @@ impl Repository {
             hasher.result(&mut checksum);
             self.write_loose_object(&*buf, &temp_dir, &checksum)?;
 
-
+            let file_mtime_info = FileTime::from_last_modification_time(&metadata);
 
             Ok(FileEntry::new(
                 file_path.into(),
@@ -570,11 +570,10 @@ impl Repository {
                 ObjectMetadata {
                     offset: LOOSE_OBJECT_OFFSET,
                     size: buf.len() as u64,
-                    #[cfg(target_family = "windows")]
-                    last_modified: FileTime::from_last_modification_time(&metadata).seconds()-11644473600,
-                    #[cfg(target_family = "unix")]
-                    last_modified: FileTime::from_last_modification_time(&metadata).seconds(),
-                    last_modified_nanos: FileTime::from_last_modification_time(&metadata).nanoseconds(),
+                },
+                FileMetadata {
+                    last_modified: file_mtime_info.unix_seconds(),
+                    last_modified_nanos: file_mtime_info.nanoseconds(),
                     #[cfg(target_family = "unix")]
                     bits_mods: metadata.permissions().mode(),
                     #[cfg(target_family = "windows")]
@@ -821,8 +820,10 @@ impl Repository {
                     ),
                 )
             })?;
-            set_file_mtime(&dest_path.parent().unwrap(),FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
-            set_file_mtime(&dest_path,FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
+            // TODO: this should be fixed so it updates to the most recent time in that folder. Probably best done in a 2 stage fashing 
+            // to not repeatedly write the data
+            set_file_mtime(&dest_path.parent().unwrap(),FileTime::from_unix_time(entry.file_metadata.last_modified, entry.file_metadata.last_modified_nanos))?;
+            set_file_mtime(&dest_path,FileTime::from_unix_time(entry.file_metadata.last_modified, entry.file_metadata.last_modified_nanos))?;   
             #[cfg(target_family = "unix")]
             fs::set_permissions(&dest_path, fs::Permissions::from_mode(entry.metadata.bits_mods)).unwrap();
         }
@@ -1062,17 +1063,21 @@ mod tests {
     use super::*;
 
     pub fn get_example_md () -> ObjectMetadata{
-        let example_md: ObjectMetadata = ObjectMetadata {
+        ObjectMetadata {
             size: 1,
             offset: LOOSE_OBJECT_OFFSET,
+        }
+    }
+
+    pub fn get_example_file_md() -> FileMetadata {
+        FileMetadata {
             last_modified: 0,
             last_modified_nanos: 0,
             bits_mods: 0,
             is_symlink_file: false,
             symlink_target: PathBuf::new(),
 
-        };
-        return example_md
+        }
     }
 
     #[test]
@@ -1120,8 +1125,8 @@ mod tests {
         let path = "/path/to/A";
         let old_checksum = [0; 20];
         let new_checksum = [1; 20];
-        let old_entries = [FileEntry::new(path.into(), old_checksum, get_example_md().clone())];
-        let new_entries = [FileEntry::new(path.into(), new_checksum, get_example_md().clone())];
+        let old_entries = [FileEntry::new(path.into(), old_checksum, get_example_md().clone(), get_example_file_md().clone())];
+        let new_entries = [FileEntry::new(path.into(), new_checksum, get_example_md().clone(), get_example_file_md().clone())];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(1, added.len());
         assert_eq!(path, added[0].path);
@@ -1137,13 +1142,14 @@ mod tests {
         let path_b_old_checksum = [0; 20];
         let path_a_new_checksum = [1; 20];
         let old_entries = [
-            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone()),
-            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone()),
+            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
         ];
         let new_entries = [FileEntry::new(
             path_a.into(),
             path_a_new_checksum,
             get_example_md().clone(),
+            get_example_file_md().clone(),
         )];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(1, added.len());
@@ -1162,12 +1168,12 @@ mod tests {
         let path_b_old_checksum = [1; 20];
         let path_b_new_checksum = [0; 20];
         let old_entries = [
-            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone()),
-            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone()),
+            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
         ];
         let new_entries = [
-            FileEntry::new(path_a.into(), path_a_new_checksum, get_example_md().clone()),
-            FileEntry::new(path_b.into(), path_b_new_checksum, get_example_md().clone()),
+            FileEntry::new(path_a.into(), path_a_new_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(path_b.into(), path_b_new_checksum, get_example_md().clone(), get_example_file_md().clone()),
         ];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(2, added.len());

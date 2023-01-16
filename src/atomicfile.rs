@@ -8,9 +8,6 @@ use std::{
 };
 
 
-#[cfg(target_family = "windows")]
-use same_file::Handle;
-
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::MetadataExt;
 
@@ -163,7 +160,7 @@ impl<'l> AtomicCreateFile<'l> {
                 }
             })
             .unwrap_or(false)
-    }
+    } 
 
     /// create_temp makes a temporary file in the same directory as 'dest' with
     /// the intent that it can be `rename()`d to dest as an atomic operation.
@@ -192,18 +189,18 @@ impl<'l> AtomicCreateFile<'l> {
     /// 'r' atomically. It consumes 'self', and relinquishes any locks on the
     /// files being atomically updated.
     pub fn commit_content(mut self, mut r: impl Read) -> io::Result<()> {
-        let written = io::copy(&mut r, &mut self.temp.1)?;
-        assert!(
-            written != 0,
-            "written == 0 in commit_content; \
-             AtomicCreateFile assumes non-empty files",
-        );
+        io::copy(&mut r, &mut self.temp.1)?;
+
         // Check that the data made it to disk before proceeding.
-        self.temp.1.sync_data()?;      
-        fs::rename(&self.temp.0, self.path)?;
+        self.temp.1.sync_data()?;
+
         // Silence field-not-read warning, and conceptually: release the lock
-        // here.
+        // and close file handles before move (blocks on windows otherwise)
         drop(self.target);
+        drop(self.temp.1);
+
+        fs::rename(&self.temp.0, self.path)?;
+        
         Ok(())
     }
 }
