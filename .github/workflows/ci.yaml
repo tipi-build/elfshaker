@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Create Release
         id: draft_release
-        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/support-windows' || github.head_ref == 'feature/support-permission-symlinks'
+        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/fixing-meta-storage'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

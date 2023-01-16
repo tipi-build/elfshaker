@@ -160,7 +160,7 @@ impl<'l> AtomicCreateFile<'l> {
                 }
             })
             .unwrap_or(false)
-    } 
+    }
 
     /// create_temp makes a temporary file in the same directory as 'dest' with
     /// the intent that it can be `rename()`d to dest as an atomic operation.
@@ -194,13 +194,23 @@ impl<'l> AtomicCreateFile<'l> {
         // Check that the data made it to disk before proceeding.
         self.temp.1.sync_data()?;
 
-        // Silence field-not-read warning, and conceptually: release the lock
-        // and close file handles before move (blocks on windows otherwise)
-        drop(self.target);
-        drop(self.temp.1);
+        // on windows we need to release the lock and close file handles before rename
+        // 
+        #[cfg(target_family = "windows")]
+        {
+            drop(self.target);
+            drop(self.temp.1);
+        }
 
         fs::rename(&self.temp.0, self.path)?;
-        
+
+        // dropping this only after rename on Unixes
+        #[cfg(target_family = "unix")]
+        {
+            drop(self.target);
+            drop(self.temp.1);
+        }
+
         Ok(())
     }
 }
