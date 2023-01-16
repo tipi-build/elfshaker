@@ -566,7 +566,7 @@ fn write_object(buf: &[u8], path: &Path, _obj_metadata: &ObjectMetadata, file_me
         set_file_mtime(path.parent().unwrap(), FileTime::from_unix_time(file_metadata.last_modified, file_metadata.last_modified_nanos))?; 
         set_file_mtime(&path, FileTime::from_unix_time(file_metadata.last_modified, file_metadata.last_modified_nanos))?; 
         #[cfg(target_family = "unix")]
-        fs::set_permissions(path, fs::Permissions::from_mode(metadata.bits_mods)).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(file_metadata.bits_mods)).unwrap();
     }
     Ok(())
 }

@@ -825,7 +825,7 @@ impl Repository {
             set_file_mtime(&dest_path.parent().unwrap(),FileTime::from_unix_time(entry.file_metadata.last_modified, entry.file_metadata.last_modified_nanos))?;
             set_file_mtime(&dest_path,FileTime::from_unix_time(entry.file_metadata.last_modified, entry.file_metadata.last_modified_nanos))?;   
             #[cfg(target_family = "unix")]
-            fs::set_permissions(&dest_path, fs::Permissions::from_mode(entry.metadata.bits_mods)).unwrap();
+            fs::set_permissions(&dest_path, fs::Permissions::from_mode(entry.file_metadata.bits_mods)).unwrap();
         }
 
         if verify {
