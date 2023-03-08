@@ -5,7 +5,6 @@ use clap::{App, Arg, ArgMatches};
 use log::info;
 use std::{error::Error, ops::ControlFlow, str::FromStr};
 
-use filetime::{set_file_mtime, FileTime};
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
 use elfshaker::{

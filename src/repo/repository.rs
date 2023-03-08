@@ -29,12 +29,16 @@ use super::fs::{
 };
 use super::pack::{write_skippable_frame, Pack, PackFrame, PackHeader, PackId, SnapshotId};
 use super::remote;
-use crate::packidx::{FileEntry, ObjectChecksum, PackError, PackIndex};
+use crate::packidx::{FileEntry, ObjectChecksum, PackError, PackIndex, FileMetadata};
 use crate::progress::ProgressReporter;
 use crate::{
     batch,
     packidx::{ObjectMetadata, LOOSE_OBJECT_OFFSET},
 };
+
+#[cfg(target_family = "unix")]
+use std::os::unix::fs::PermissionsExt;
+
 
 /// A struct specifying the the extract options.
 #[derive(Clone, Debug)]
@@ -278,7 +282,7 @@ impl Repository {
                 snapshot.to_owned(),
             ))),
             1 => Ok(packs.into_iter().next().unwrap()),
-            _ => Err(Error::AmbiguousSnapshotMatch(snapshot.to_owned(), packs)),
+            _ => self.disambiguate_snapshot(&packs, snapshot),
         }
     }
 
@@ -298,6 +302,9 @@ impl Repository {
         let PackId::Pack(pack_name) = pack_id;
 
         // The pack is loose if the .pack.idx is in the loose packs directory
+        #[cfg(target_family = "windows")]
+        let pack_name = Self::replace_back_to_slash(&pack_name);
+
         if !pack_name.starts_with(&(LOOSE_DIR.to_owned() + "/")) {
             return false;
         }
@@ -307,7 +314,6 @@ impl Repository {
             .join(PACKS_DIR)
             .join(pack_name)
             .with_extension(PACK_INDEX_EXTENSION);
-
         pack_index_path.exists()
     }
 
@@ -517,6 +523,7 @@ impl Repository {
         Cow::Borrowed(REPO_DIR)
     }
 
+
     pub fn create_snapshot<I, P>(&mut self, snapshot: &SnapshotId, files: I) -> Result<(), Error>
     where
         I: Iterator<Item = P>,
@@ -531,13 +538,31 @@ impl Repository {
         let threads = num_cpus::get();
 
         let pack_entries = run_in_parallel(threads, files.into_iter(), |file_path| {
-            let metadata = fs::metadata(&file_path).unwrap();
-            let buf = fs::read(&file_path)?;
+            let file_path = Self::replace_back_to_slash(&file_path.as_os_str().to_str().unwrap().to_string());
+
+            let buf : Vec<u8>;
             let mut checksum = [0u8; 20];
+            
+            //let path = Path::new(&file_path);
+            let is_symlink_file = Path::new(&file_path).is_symlink();
+            let metadata;
+            let symlink_target;
+            if is_symlink_file{
+                buf = Self::create_vec_u8_from_string(file_path.clone());
+                metadata = fs::symlink_metadata(&file_path).unwrap();
+                symlink_target = fs::read_link(&file_path)?;
+            }else{
+                buf = fs::read(&file_path)?;
+                metadata = fs::metadata(&file_path).unwrap();
+                symlink_target = Path::new("").to_path_buf();
+            }
+
             let mut hasher = Sha1::new();
             hasher.input(&buf);
             hasher.result(&mut checksum);
             self.write_loose_object(&*buf, &temp_dir, &checksum)?;
+
+            let file_mtime_info = FileTime::from_last_modification_time(&metadata);
 
             Ok(FileEntry::new(
                 file_path.into(),
@@ -545,8 +570,17 @@ impl Repository {
                 ObjectMetadata {
                     offset: LOOSE_OBJECT_OFFSET,
                     size: buf.len() as u64,
-                    last_modified: FileTime::from_last_modification_time(&metadata).seconds(),
-                    last_modified_nanos: FileTime::from_last_modification_time(&metadata).nanoseconds(),
+                },
+                FileMetadata {
+                    last_modified: file_mtime_info.unix_seconds(),
+                    last_modified_nanos: file_mtime_info.nanoseconds(),
+                    #[cfg(target_family = "unix")]
+                    bits_mods: metadata.permissions().mode(),
+                    #[cfg(target_family = "windows")]
+                    bits_mods: 0o777,
+                    is_symlink_file: is_symlink_file,
+                    symlink_target: symlink_target,
+
                 },
             ))
         })
@@ -568,6 +602,21 @@ impl Repository {
         self.update_head(snapshot)?;
 
         Ok(())
+    }
+
+    pub fn replace_back_to_slash(a: &str)-> String {
+        let  file_path_replaced = a.replace(r"\","/");
+        let file_path_replacedop: &str = &file_path_replaced;
+        let file_path_trim = file_path_replacedop.trim_end_matches('\r');
+        return file_path_trim.to_string();
+    }
+
+    pub fn create_vec_u8_from_string(a: String)-> Vec<u8> {
+        let mut vec = Vec::new();
+        for char_u8 in a.bytes() {
+            vec.push(char_u8);
+        }
+        return vec;
     }
 
     /// Creates a pack file.
@@ -708,11 +757,15 @@ impl Repository {
         let data_dir = self.path.join(&*Self::data_dir());
         let snapshot_string = format!("{}\n", snapshot_id);
         ensure_dir(&self.temp_dir())?;
+
+        #[cfg(target_family = "windows")]
+        let snapshot_string = Self::replace_back_to_slash(&snapshot_string);
         write_file_atomic(
             snapshot_string.as_bytes(),
             &self.temp_dir(),
             &data_dir.join(HEAD_FILE),
         )?;
+
         Ok(())
     }
 
@@ -767,8 +820,12 @@ impl Repository {
                     ),
                 )
             })?;
-            set_file_mtime(&dest_path.parent().unwrap(),FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
-            set_file_mtime(&dest_path,FileTime::from_unix_time(entry.metadata.last_modified, entry.metadata.last_modified_nanos))?;   
+            // TODO: this should be fixed so it updates to the most recent time in that folder. Probably best done in a 2 stage fashing 
+            // to not repeatedly write the data
+            set_file_mtime(&dest_path.parent().unwrap(),FileTime::from_unix_time(entry.file_metadata.last_modified, entry.file_metadata.last_modified_nanos))?;
+            set_file_mtime(&dest_path,FileTime::from_unix_time(entry.file_metadata.last_modified, entry.file_metadata.last_modified_nanos))?;   
+            #[cfg(target_family = "unix")]
+            fs::set_permissions(&dest_path, fs::Permissions::from_mode(entry.file_metadata.bits_mods)).unwrap();
         }
 
         if verify {
@@ -919,19 +976,57 @@ impl Repository {
         }
         Ok(())
     }
+
+    /// Checks whether the snapshots have the same content checksum.
+    fn are_snapshots_equal(&self, packs: &[PackId], snapshot: &str) -> Result<bool, Error> {
+        let mut snapshot_checksums = packs.iter().map(|pack| {
+            self.load_index(pack)
+                .map(|packidx| packidx.compute_snapshot_checksum(snapshot))
+                .expect("failed to resolve snapshot")
+        });
+
+        let first = snapshot_checksums.next().expect("At least 1 pack expected");
+        Ok(snapshot_checksums.all(|checksum| checksum == first))
+    }
+
+    /// Takes a set of packs which contain the given snapshot name. If the
+    /// snapshot in each pack is identical according to content checksum,
+    /// return an arbitrary pack, preferring a loose one if available.
+    fn disambiguate_snapshot(&self, packs: &[PackId], snapshot: &str) -> Result<PackId, Error> {
+        info!(
+            "Snapshot exists in multiple packs ({:?}), verifying that checksums match...",
+            packs
+        );
+        if self.are_snapshots_equal(packs, snapshot)? {
+            // The snapshots have the same checksums, so we could use either one
+            // but we prefer picking a loose one over a packed for performance.
+            let loose = packs.iter().find(|pack| self.is_pack_loose(pack));
+            let selected = loose.unwrap_or(&packs[0]).clone();
+            info!(
+                "Snapshot exists in multiple packs ({:?}), {:?} is selected",
+                packs, selected
+            );
+            Ok(selected)
+        } else {
+            Err(Error::AmbiguousSnapshotMatch(
+                snapshot.to_owned(),
+                packs.to_vec(),
+            ))
+        }
+    }
 }
 
 /// Cleans the list of file paths relative to the repository root,
 /// and skips any paths pointing into the repository data directory.
 fn clean_file_list<P>(
-    repo_dir: &Path,
+    _repo_dir: &Path,
     files: impl Iterator<Item = P>,
 ) -> io::Result<impl Iterator<Item = PathBuf>>
 where
     P: AsRef<Path>,
 {
-    let files = files
-        .flat_map(|p| {
+    let files = 
+    files.flat_map(|p| {
             if p.as_ref().is_relative() {
                 Ok(p)
             } else {
@@ -942,18 +1037,17 @@ where
             }
         })
         .map(|p| {
-            Ok(p.as_ref()
-                .canonicalize()?
+            Ok( p.as_ref()
                 .components()
-                .skip(repo_dir.components().count())
-                .collect::<PathBuf>())
+                .collect::<PathBuf>()
+            )
         })
         .collect::<io::Result<Vec<PathBuf>>>()?
         .into_iter()
-        .filter(|p| !is_elfshaker_data_path(p));
-
+       .filter(|p| !is_elfshaker_data_path(p));    
     Ok(files)
 }
+
 
 /// Checks if the relative path is rooted at the data directory.
 fn is_elfshaker_data_path(p: &Path) -> bool {
@@ -968,10 +1062,23 @@ fn is_elfshaker_data_path(p: &Path) -> bool {
 mod tests {
     use super::*;
 
-    static EXAMPLE_MD: ObjectMetadata = ObjectMetadata {
-        size: 1,
-        offset: LOOSE_OBJECT_OFFSET,
-    };
+    pub fn get_example_md () -> ObjectMetadata{
+        ObjectMetadata {
+            size: 1,
+            offset: LOOSE_OBJECT_OFFSET,
+        }
+    }
+
+    pub fn get_example_file_md() -> FileMetadata {
+        FileMetadata {
+            last_modified: 0,
+            last_modified_nanos: 0,
+            bits_mods: 0,
+            is_symlink_file: false,
+            symlink_target: PathBuf::new(),
+
+        }
+    }
 
     #[test]
     fn building_loose_object_paths_works() {
@@ -984,13 +1091,16 @@ mod tests {
             progress_reporter_factory: Box::new(|_| ProgressReporter::dummy()),
         };
         let path = repo.loose_object_path(&checksum);
+        let path_string = path.to_str().unwrap();
+        #[cfg(target_family = "windows")]
+        let  path_string = path_string.replace(r"\","/");
         assert_eq!(
             format!(
                 "/repo/{}/{}/fa/f0/deadbeefbadc0de0faf0deadbeefbadc0de0",
                 Repository::data_dir(),
                 LOOSE_DIR
             ),
-            path.to_str().unwrap(),
+            path_string,
         );
     }
 
@@ -1015,8 +1125,8 @@ mod tests {
         let path = "/path/to/A";
         let old_checksum = [0; 20];
         let new_checksum = [1; 20];
-        let old_entries = [FileEntry::new(path.into(), old_checksum, EXAMPLE_MD)];
-        let new_entries = [FileEntry::new(path.into(), new_checksum, EXAMPLE_MD)];
+        let old_entries = [FileEntry::new(path.into(), old_checksum, get_example_md().clone(), get_example_file_md().clone())];
+        let new_entries = [FileEntry::new(path.into(), new_checksum, get_example_md().clone(), get_example_file_md().clone())];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(1, added.len());
         assert_eq!(path, added[0].path);
@@ -1032,13 +1142,14 @@ mod tests {
         let path_b_old_checksum = [0; 20];
         let path_a_new_checksum = [1; 20];
         let old_entries = [
-            FileEntry::new(path_a.into(), path_a_old_checksum, EXAMPLE_MD),
-            FileEntry::new(path_b.into(), path_b_old_checksum, EXAMPLE_MD),
+            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
         ];
         let new_entries = [FileEntry::new(
             path_a.into(),
             path_a_new_checksum,
-            EXAMPLE_MD,
+            get_example_md().clone(),
+            get_example_file_md().clone(),
         )];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(1, added.len());
@@ -1057,12 +1168,12 @@ mod tests {
         let path_b_old_checksum = [1; 20];
         let path_b_new_checksum = [0; 20];
         let old_entries = [
-            FileEntry::new(path_a.into(), path_a_old_checksum, EXAMPLE_MD),
-            FileEntry::new(path_b.into(), path_b_old_checksum, EXAMPLE_MD),
+            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
         ];
         let new_entries = [
-            FileEntry::new(path_a.into(), path_a_new_checksum, EXAMPLE_MD),
-            FileEntry::new(path_b.into(), path_b_new_checksum, EXAMPLE_MD),
+            FileEntry::new(path_a.into(), path_a_new_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(path_b.into(), path_b_new_checksum, get_example_md().clone(), get_example_file_md().clone()),
         ];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(2, added.len());

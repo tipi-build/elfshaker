@@ -7,7 +7,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+
+#[cfg(target_family = "unix")]
 use std::os::unix::fs::MetadataExt;
+
+
 
 /// AtomicCreateFile provides an API for atomically creating a file, determining
 /// if it exists before proceeding to do potentially expensive work to fill it.
@@ -52,18 +56,28 @@ use std::os::unix::fs::MetadataExt;
 /// given path `p` is an empty file with no lock held. In that case, the file is
 /// deleted with the lock held so the name can be reused.
 pub struct AtomicCreateFile<'l> {
-    path: &'l Path,
-    temp: (PathBuf, File),
-    target: File,
+    pub path: &'l Path,
+    pub temp: (PathBuf, File),
+    pub target: File,
 }
 
 /// lock_name acquires a lock on the given `fd`, and ensures that the
 /// `fd` relates to the given Path. This protects against the case where
 /// a file can be locked, but unlinked.
+#[cfg(target_family = "windows")]
+fn lock_name(_name: &Path, fd: &File) -> io::Result<()> {
+    fd.try_lock_exclusive()?;
+    let meta = fd.metadata()?;
+
+    if !meta.is_file() {
+        return Err(io::Error::new(io::ErrorKind::WouldBlock, "would block"));
+    }
+  Ok(())
+}
+
+#[cfg(target_family = "unix")]
 fn lock_name(name: &Path, fd: &File) -> io::Result<()> {
     fd.try_lock_exclusive()?;
-    // Lock acquired. Ensure that the name on the filesystem corresponds
-    // to the lock now held.
     let i0 = fd.metadata()?.ino();
     let i1 = fs::metadata(name)?.ino();
     if i0 != i1 {
@@ -76,7 +90,6 @@ impl<'l> AtomicCreateFile<'l> {
     pub fn new(dest: &'l Path) -> io::Result<Self> {
         let mut atomic_create_for_write = OpenOptions::new();
         atomic_create_for_write.write(true).create_new(true);
-
         let parent = dest.parent().unwrap_or_else(|| Path::new("/"));
         let file = match atomic_create_for_write.open(dest) {
             Ok(file) => {
@@ -176,18 +189,28 @@ impl<'l> AtomicCreateFile<'l> {
     /// 'r' atomically. It consumes 'self', and relinquishes any locks on the
     /// files being atomically updated.
     pub fn commit_content(mut self, mut r: impl Read) -> io::Result<()> {
-        let written = io::copy(&mut r, &mut self.temp.1)?;
-        assert!(
-            written != 0,
-            "written == 0 in commit_content; \
-             AtomicCreateFile assumes non-empty files",
-        );
+        io::copy(&mut r, &mut self.temp.1)?;
+
         // Check that the data made it to disk before proceeding.
         self.temp.1.sync_data()?;
-        fs::rename(self.temp.0, self.path)?;
-        // Silence field-not-read warning, and conceptually: release the lock
-        // here.
-        drop(self.target);
+
+        // on windows we need to release the lock and close file handles before rename
+        // 
+        #[cfg(target_family = "windows")]
+        {
+            drop(self.target);
+            drop(self.temp.1);
+        }
+
+        fs::rename(&self.temp.0, self.path)?;
+
+        // dropping this only after rename on Unixes
+        #[cfg(target_family = "unix")]
+        {
+            drop(self.target);
+            drop(self.temp.1);
+        }
+
         Ok(())
     }
 }
@@ -209,18 +232,23 @@ mod tests {
     use std::error::Error;
 
     use crate::repo::run_in_parallel;
+    use std::env;
+
 
     use super::*;
 
+#[cfg(target_family = "unix")]
     #[test]
     fn test_atomic_update_api() -> Result<(), Box<dyn Error>> {
-        let p = create_temp_path("/tmp/test_atomic_update_api");
+        let mut dir = env::temp_dir();
+        dir.push(r"test_atomic_update_api");
+        println!("Temporary directory: {}", dir.display());
+        let p = create_temp_path(dir);
 
         // Create an empty file with no lock on it.
         // Should succeed later.
         fs::create_dir_all(p.parent().unwrap())?;
         fs::write(&p, vec![])?;
-
         let content = b"non-empty" as &[u8];
         const NTHREAD: i32 = 128;
         let n_total = NTHREAD * 1000;
@@ -232,6 +260,10 @@ mod tests {
         .map(|r| match r {
             Ok(_) => 1,
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => -1,
+            #[cfg(target_family = "windows")]
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied => -1,
+            #[cfg(target_family = "windows")]
+            Err(e) if e.kind().to_string() == "uncategorized error"   => -1,
             Err(e) => panic!("unexpected error: {:?}", e),
         })
         .sum();
@@ -240,7 +272,6 @@ mod tests {
         let (n_success, n_fail) = (1, n_total - 1);
         // Test that we see exactly one success and the rest as failures.
         assert_eq!((n_success * 1) + (n_fail * -1), result);
-
         Ok(())
     }
 }

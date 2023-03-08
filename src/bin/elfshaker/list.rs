@@ -103,7 +103,7 @@ fn print_snapshot_summary(repo: &Repository, snapshot: &SnapshotId, bytes: bool)
     for entry in idx.entries_from_handles(handles.iter())? {
         table.push([
             hex::encode(entry.checksum).to_string(),
-            if bytes { entry.metadata.size.to_string() } else { format_size(entry.metadata.size) },
+            if bytes { entry.obj_metadata.size.to_string() } else { format_size(entry.obj_metadata.size) },
             Path::display(entry.path.as_ref()).to_string(),
         ]);
     }
