@@ -9,7 +9,7 @@ mod pack;
 mod show;
 mod store;
 mod update;
-mod unpack;
+mod loosen;
 mod utils;
 
 use clap::{App, Arg, ArgMatches};
@@ -50,7 +50,7 @@ fn run_subcommand(app: &mut App, matches: ArgMatches) -> Result<(), Box<dyn Erro
         (find::SUBCOMMAND, Some(matches)) => find::run(matches),
         (update::SUBCOMMAND, Some(matches)) => update::run(matches),
         (clone::SUBCOMMAND, Some(matches)) => clone::run(matches),
-        (unpack::SUBCOMMAND, Some(matches)) => unpack::run(matches),
+        (loosen::SUBCOMMAND, Some(matches)) => loosen::run(matches),
         _ => {
             app.print_long_help()?;
             println!();
@@ -69,7 +69,7 @@ fn get_app() -> App<'static, 'static> {
         .subcommand(find::get_app())
         .subcommand(update::get_app())
         .subcommand(clone::get_app())
-        .subcommand(unpack::get_app())
+        .subcommand(loosen::get_app())
         .arg(
             Arg::with_name("verbose")
                 .long("verbose")
