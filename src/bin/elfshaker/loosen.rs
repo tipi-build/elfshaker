@@ -54,12 +54,8 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         repo.rewrite_loose_object(entry.path, &entry.checksum)?;
     }
 
-    // TODO: some output would be nice. number of files / snapshots loosened?
-
-    // eprintln!("A \t{} files", result.added_file_count);
-    // eprintln!("D \t{} files", result.removed_file_count);
-    // eprintln!("M \t{} files", result.modified_file_count);
-    // eprintln!("Unpacked'{}'", new_head);
+    let snapshot_count = repo.load_index_snapshots(&pack_id).unwrap().len();
+    eprintln!("Loosened {} snapshot(s)", snapshot_count);
 
     Ok(())
 }

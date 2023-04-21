@@ -27,7 +27,7 @@ fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
     let input_file = temp.child("foo.txt");
     input_file.touch().unwrap();
     let mut file = File::open(input_file).unwrap();
-    file.write("Snapshot 1 contents".as_ref());
+    let _ = file.write("Snapshot 1 contents".as_ref());
 
     // 2. prepare: create first snapshot
     let mut cmd = Command::cargo_bin("elfshaker")?;
@@ -47,7 +47,7 @@ fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
     let input_file = temp.child("bar.txt");
     input_file.touch().unwrap();
     let mut file = File::open(input_file).unwrap();
-    file.write("Snapshot 2 contents".as_ref());
+    let _ = file.write("Snapshot 2 contents".as_ref());
 
     // 5. loosen prepared/downloaded pack
     let mut cmd = Command::cargo_bin("elfshaker")?;
@@ -71,7 +71,6 @@ fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("elfshaker")?;
     cmd.current_dir(temp.path());
     cmd.arg("list").arg("pack2");
-    println!("{:?}", cmd.output().unwrap());
     cmd.assert()
         .success()
         .stdout(predicate::str::contains("snapshot1"))
