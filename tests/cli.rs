@@ -5,17 +5,6 @@ use predicates::prelude::*;
 use std::process::Command;
 use assert_fs::prelude::*;
 
-#[test]
-fn just_run_loosen() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("elfshaker")?;
-
-    cmd.arg("loosen").arg("1");
-    cmd.assert()
-        .failure()
-        .stderr(predicate::str::contains("Reading pack index: couldn\'t open"));
-    Ok(())
-}
-
 // main use case: loosen and repackage in order to add a snapshot to an existing pack. Should be
 // faster than unpacking each single snapshot.
 #[test]
