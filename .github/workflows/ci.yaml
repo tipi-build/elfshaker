@@ -7,7 +7,7 @@ on:
       - develop
   pull_request:
 env:
-  version_in_development: v0.0.10
+  version_in_development: v0.0.11
 
 jobs:
   draft-release:
@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Create Release
         id: draft_release
-        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/fixing-meta-storage'
+        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/unpack-cmd'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

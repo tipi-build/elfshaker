@@ -12,6 +12,8 @@ use std::{
     str::FromStr,
     time::SystemTime,
 };
+use std::ffi::OsString;
+use std::io::Cursor;
 
 use filetime::{set_file_mtime, FileTime};
 
@@ -910,6 +912,18 @@ impl Repository {
         let mut temp_dir = self.path.join(&*Repository::data_dir());
         temp_dir.push(TEMP_DIR);
         temp_dir
+    }
+
+    pub fn rewrite_loose_object(
+        &self,
+        file_path: OsString,
+        checksum: &ObjectChecksum
+    ) -> io::Result<()> {
+        let temp_dir = self.temp_dir();
+        let buf = fs::read(&file_path)?;
+        let buf = Cursor::new(buf);
+        self.write_loose_object(buf, &temp_dir, &checksum)?;
+        Ok(())
     }
 
     /// Atomically writes an object to the loose object store.
