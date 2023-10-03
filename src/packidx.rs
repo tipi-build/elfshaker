@@ -529,7 +529,7 @@ impl PackIndex {
     fn read_magic(rd: &mut impl Read) -> Result<(), PackError> {
         let mut magic = [0; 4];
         rd.read_exact(&mut magic)?;
-        if magic.ne(&*b"ELFS") {
+        if magic.ne(b"ELFS") {
             return Err(PackError::BadMagic);
         }
         let mut version = [0; 4];
@@ -541,7 +541,7 @@ impl PackIndex {
     }
 
     fn write_magic(wr: &mut impl Write) -> std::io::Result<()> {
-        wr.write_all(&*b"ELFS")?;
+        wr.write_all(b"ELFS")?;
         wr.write_all(&[0, 0, 0, 1])?;
         Ok(())
     }

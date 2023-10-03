@@ -579,8 +579,8 @@ impl Repository {
                     bits_mods: metadata.permissions().mode(),
                     #[cfg(target_family = "windows")]
                     bits_mods: 0o777,
-                    is_symlink_file: is_symlink_file,
-                    symlink_target: symlink_target,
+                    is_symlink_file,
+                    symlink_target,
                 },
             ))
         })
@@ -605,10 +605,10 @@ impl Repository {
     }
 
     pub fn replace_back_to_slash(a: &str) -> String {
-        let file_path_replaced = a.replace(r"\", "/");
+        let file_path_replaced = a.replace('\\', "/");
         let file_path_replacedop: &str = &file_path_replaced;
         let file_path_trim = file_path_replacedop.trim_end_matches('\r');
-        return file_path_trim.to_string();
+        file_path_trim.to_string()
     }
 
     pub fn create_vec_u8_from_string(a: String) -> Vec<u8> {
@@ -616,7 +616,7 @@ impl Repository {
         for char_u8 in a.bytes() {
             vec.push(char_u8);
         }
-        return vec;
+        vec
     }
 
     /// Creates a pack file.
@@ -823,7 +823,7 @@ impl Repository {
             // TODO: this should be fixed so it updates to the most recent time in that folder. Probably best done in a 2 stage fashing
             // to not repeatedly write the data
             set_file_mtime(
-                &dest_path.parent().unwrap(),
+                dest_path.parent().unwrap(),
                 FileTime::from_unix_time(
                     entry.file_metadata.last_modified,
                     entry.file_metadata.last_modified_nanos,
@@ -897,7 +897,7 @@ impl Repository {
     }
 
     fn check_changed_since(&self, head_time: SystemTime, path: &Path) -> Result<(), Error> {
-        let last_modified = fs::metadata(&path)
+        let last_modified = fs::metadata(path)
             // The modification date of the file is unknown, there is no other
             // option to fallback on, so we mark the directory as dirty.
             .map_err(|_| {
@@ -934,9 +934,9 @@ impl Repository {
         checksum: &ObjectChecksum,
     ) -> io::Result<()> {
         let temp_dir = self.temp_dir();
-        let buf = fs::read(&file_path)?;
+        let buf = fs::read(file_path)?;
         let buf = Cursor::new(buf);
-        self.write_loose_object(buf, &temp_dir, &checksum)?;
+        self.write_loose_object(buf, &temp_dir, checksum)?;
         Ok(())
     }
 

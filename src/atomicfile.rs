@@ -219,7 +219,7 @@ fn create_temp_path<P: AsRef<Path>>(temp_dir: P) -> PathBuf {
     temp_filename.push_str(&{
         let mut bytes = [0u8; 16];
         rand::thread_rng().fill_bytes(&mut bytes);
-        hex::encode(&bytes)
+        hex::encode(bytes)
     });
     temp_dir.as_ref().join(&temp_filename)
 }

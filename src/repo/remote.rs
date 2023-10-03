@@ -389,9 +389,7 @@ pub fn update_remote_pack(
     pack_path: &Path,
     reporter: &ProgressReporter,
 ) -> Result<(), Error> {
-    let date_modified = fs::metadata(&pack_path)
-        .ok()
-        .and_then(|x| x.modified().ok());
+    let date_modified = fs::metadata(pack_path).ok().and_then(|x| x.modified().ok());
 
     let url = remote_pack.url.parse::<Url>().unwrap();
     if let Some((content_length, mut reader)) =
@@ -439,7 +437,7 @@ pub fn update_remote_pack_indexes(
             // The file exists and the checksums match -> skip
             log::info!("{} is up to date", pack_index_path.display());
         } else {
-            update_pack_index(&agent, &url, &pack_index_path)?;
+            update_pack_index(agent, &url, &pack_index_path)?;
         }
 
         done += 1;
@@ -452,7 +450,7 @@ pub fn update_remote_pack_indexes(
 /// Updates the pack index file by fetching its contents from the URL only
 /// when the content at the URL is newer than what is available on-disk.
 fn update_pack_index(agent: &Agent, url: &Url, pack_index_path: &Path) -> Result<(), Error> {
-    let date_modified = fs::metadata(&pack_index_path)
+    let date_modified = fs::metadata(pack_index_path)
         .ok()
         .and_then(|x| x.modified().ok());
 
@@ -472,7 +470,7 @@ fn update_pack_index(agent: &Agent, url: &Url, pack_index_path: &Path) -> Result
                 pack_index_path.display(),
                 pack_index_bytes.len()
             );
-            fs::write(&pack_index_path, pack_index_bytes.as_slice()).map_err(Error::IOError)?;
+            fs::write(pack_index_path, pack_index_bytes.as_slice()).map_err(Error::IOError)?;
         }
     }
     Ok(())
@@ -516,7 +514,7 @@ pub fn update_remote(agent: &Agent, remote: &RemoteIndex) -> Result<RemoteIndex,
 
     match response {
         // The local version is up-to-date.
-        None => RemoteIndex::load(&path).reify(path.display()),
+        None => RemoteIndex::load(path).reify(path.display()),
         Some(data) => {
             let mut remote = RemoteIndex::read(BufReader::new(data.as_slice())).reify(url)?;
             // Update the .esi
@@ -567,7 +565,7 @@ fn compute_checksum(path: &Path) -> io::Result<ObjectChecksum> {
 /// GMT`
 fn format_http_date(t: SystemTime) -> String {
     let datetime: DateTime<Utc> = t.into();
-    return format!("{}", datetime.format("%a, %d %h %Y %H:%M:%S GMT"));
+    format!("{}", datetime.format("%a, %d %h %Y %H:%M:%S GMT"))
 }
 
 #[cfg(test)]

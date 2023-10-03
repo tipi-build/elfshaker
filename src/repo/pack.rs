@@ -333,7 +333,7 @@ impl Pack {
 
     /// Opens the pack file for reading.
     fn open_pack(pack_path: &Path) -> Result<(u64, PackHeader, Vec<PackReader>), Error> {
-        let file = open_file(&pack_path)?;
+        let file = open_file(pack_path)?;
         let file_size = file.metadata()?.len();
         let mut reader = io::BufReader::new(file);
 
@@ -352,7 +352,7 @@ impl Pack {
         let frame_readers = frame_offsets
             .iter()
             .map(|offset| -> Result<_, Error> {
-                let mut reader = open_file(&pack_path)?;
+                let mut reader = open_file(pack_path)?;
                 io::Seek::seek(&mut reader, io::SeekFrom::Start(header_size + offset))?;
                 let mut reader = Decoder::new(reader)?;
                 reader.set_parameter(DParameter::WindowLogMax(DEFAULT_WINDOW_LOG_MAX))?;
@@ -367,7 +367,7 @@ impl Pack {
 
     /// Backwards-compatible open_pack for the legacy pack format (no skippable frame/no header).
     fn open_pack_legacy(pack_path: &Path) -> Result<(u64, PackHeader, Vec<PackReader>), Error> {
-        let file = open_file(&pack_path)?;
+        let file = open_file(pack_path)?;
         let file_size = file.metadata()?.len();
 
         // This manufactured pack header works for the current implementation. We might
@@ -508,7 +508,7 @@ fn verify_object(buf: &[u8], exp_checksum: &ObjectChecksum) -> Result<(), Error>
 fn create_symlink_safely(path: &Path, symlink_target: &PathBuf) -> Result<(), Error> {
     let is_symlink_file_exist = Path::new(&path).is_symlink();
     if is_symlink_file_exist {
-        let symlink_target_read = fs::read_link(&path)?;
+        let symlink_target_read = fs::read_link(path)?;
         if symlink_target_read.as_os_str() == symlink_target.as_os_str() {
             return Ok(());
         }
@@ -521,7 +521,7 @@ fn create_symlink_safely(path: &Path, symlink_target: &PathBuf) -> Result<(), Er
         symlink(symlink_target, path)?;
     } else {
         // symlink target does not yet exist - create a temporary dummy
-        let f = AtomicCreateFile::new(&symlink_target)?;
+        let f = AtomicCreateFile::new(symlink_target)?;
         f.commit_content("".as_bytes())?;
 
         #[cfg(target_family = "windows")]
@@ -559,7 +559,7 @@ fn write_object(
             f.lock_exclusive()?;
             f.write_all(buf)?;
         } else {
-            let f = AtomicCreateFile::new(&path)?;
+            let f = AtomicCreateFile::new(path)?;
             f.commit_content(buf)?;
         }
 
@@ -573,7 +573,7 @@ fn write_object(
             ),
         )?;
         set_file_mtime(
-            &path,
+            path,
             FileTime::from_unix_time(
                 file_metadata.last_modified,
                 file_metadata.last_modified_nanos,
