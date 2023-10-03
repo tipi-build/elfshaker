@@ -32,7 +32,10 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         let _ = fs::remove_dir_all(temp_directory);
         return Err(e);
     };
-    fs::rename(original_cwd.join(temp_directory), original_cwd.join(directory))?;
+    fs::rename(
+        original_cwd.join(temp_directory),
+        original_cwd.join(directory),
+    )?;
 
     Ok(())
 }

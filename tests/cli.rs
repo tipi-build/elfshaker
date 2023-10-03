@@ -1,15 +1,14 @@
+use assert_cmd::prelude::*;
+use assert_fs::prelude::*;
+use predicates::prelude::*;
 use std::fs::File;
 use std::io::Write;
-use assert_cmd::prelude::*;
-use predicates::prelude::*;
 use std::process::Command;
-use assert_fs::prelude::*;
 
 // main use case: loosen and repackage in order to add a snapshot to an existing pack. Should be
 // faster than unpacking each single snapshot.
 #[test]
 fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
-
     let temp = assert_fs::TempDir::new().unwrap();
 
     // 1. prepare: file foo.txt

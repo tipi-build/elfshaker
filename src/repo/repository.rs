@@ -3,6 +3,8 @@
 
 use super::{constants::*, pack::IdError};
 
+use std::ffi::OsString;
+use std::io::Cursor;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -12,8 +14,6 @@ use std::{
     str::FromStr,
     time::SystemTime,
 };
-use std::ffi::OsString;
-use std::io::Cursor;
 
 use filetime::{set_file_mtime, FileTime};
 
@@ -31,7 +31,7 @@ use super::fs::{
 };
 use super::pack::{write_skippable_frame, Pack, PackFrame, PackHeader, PackId, SnapshotId};
 use super::remote;
-use crate::packidx::{FileEntry, ObjectChecksum, PackError, PackIndex, FileMetadata};
+use crate::packidx::{FileEntry, FileMetadata, ObjectChecksum, PackError, PackIndex};
 use crate::progress::ProgressReporter;
 use crate::{
     batch,
@@ -40,7 +40,6 @@ use crate::{
 
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::PermissionsExt;
-
 
 /// A struct specifying the the extract options.
 #[derive(Clone, Debug)]
@@ -525,7 +524,6 @@ impl Repository {
         Cow::Borrowed(REPO_DIR)
     }
 
-
     pub fn create_snapshot<I, P>(&mut self, snapshot: &SnapshotId, files: I) -> Result<(), Error>
     where
         I: Iterator<Item = P>,
@@ -540,20 +538,21 @@ impl Repository {
         let threads = num_cpus::get();
 
         let pack_entries = run_in_parallel(threads, files.into_iter(), |file_path| {
-            let file_path = Self::replace_back_to_slash(&file_path.as_os_str().to_str().unwrap().to_string());
+            let file_path =
+                Self::replace_back_to_slash(&file_path.as_os_str().to_str().unwrap().to_string());
 
-            let buf : Vec<u8>;
+            let buf: Vec<u8>;
             let mut checksum = [0u8; 20];
-            
+
             //let path = Path::new(&file_path);
             let is_symlink_file = Path::new(&file_path).is_symlink();
             let metadata;
             let symlink_target;
-            if is_symlink_file{
+            if is_symlink_file {
                 buf = Self::create_vec_u8_from_string(file_path.clone());
                 metadata = fs::symlink_metadata(&file_path).unwrap();
                 symlink_target = fs::read_link(&file_path)?;
-            }else{
+            } else {
                 buf = fs::read(&file_path)?;
                 metadata = fs::metadata(&file_path).unwrap();
                 symlink_target = Path::new("").to_path_buf();
@@ -582,7 +581,6 @@ impl Repository {
                     bits_mods: 0o777,
                     is_symlink_file: is_symlink_file,
                     symlink_target: symlink_target,
-
                 },
             ))
         })
@@ -606,14 +604,14 @@ impl Repository {
         Ok(())
     }
 
-    pub fn replace_back_to_slash(a: &str)-> String {
-        let  file_path_replaced = a.replace(r"\","/");
+    pub fn replace_back_to_slash(a: &str) -> String {
+        let file_path_replaced = a.replace(r"\", "/");
         let file_path_replacedop: &str = &file_path_replaced;
         let file_path_trim = file_path_replacedop.trim_end_matches('\r');
         return file_path_trim.to_string();
     }
 
-    pub fn create_vec_u8_from_string(a: String)-> Vec<u8> {
+    pub fn create_vec_u8_from_string(a: String) -> Vec<u8> {
         let mut vec = Vec::new();
         for char_u8 in a.bytes() {
             vec.push(char_u8);
@@ -822,12 +820,28 @@ impl Repository {
                     ),
                 )
             })?;
-            // TODO: this should be fixed so it updates to the most recent time in that folder. Probably best done in a 2 stage fashing 
+            // TODO: this should be fixed so it updates to the most recent time in that folder. Probably best done in a 2 stage fashing
             // to not repeatedly write the data
-            set_file_mtime(&dest_path.parent().unwrap(),FileTime::from_unix_time(entry.file_metadata.last_modified, entry.file_metadata.last_modified_nanos))?;
-            set_file_mtime(&dest_path,FileTime::from_unix_time(entry.file_metadata.last_modified, entry.file_metadata.last_modified_nanos))?;   
+            set_file_mtime(
+                &dest_path.parent().unwrap(),
+                FileTime::from_unix_time(
+                    entry.file_metadata.last_modified,
+                    entry.file_metadata.last_modified_nanos,
+                ),
+            )?;
+            set_file_mtime(
+                &dest_path,
+                FileTime::from_unix_time(
+                    entry.file_metadata.last_modified,
+                    entry.file_metadata.last_modified_nanos,
+                ),
+            )?;
             #[cfg(target_family = "unix")]
-            fs::set_permissions(&dest_path, fs::Permissions::from_mode(entry.file_metadata.bits_mods)).unwrap();
+            fs::set_permissions(
+                &dest_path,
+                fs::Permissions::from_mode(entry.file_metadata.bits_mods),
+            )
+            .unwrap();
         }
 
         if verify {
@@ -917,7 +931,7 @@ impl Repository {
     pub fn rewrite_loose_object(
         &self,
         file_path: OsString,
-        checksum: &ObjectChecksum
+        checksum: &ObjectChecksum,
     ) -> io::Result<()> {
         let temp_dir = self.temp_dir();
         let buf = fs::read(&file_path)?;
@@ -1039,8 +1053,8 @@ fn clean_file_list<P>(
 where
     P: AsRef<Path>,
 {
-    let files = 
-    files.flat_map(|p| {
+    let files = files
+        .flat_map(|p| {
             if p.as_ref().is_relative() {
                 Ok(p)
             } else {
@@ -1050,18 +1064,12 @@ where
                 ))
             }
         })
-        .map(|p| {
-            Ok( p.as_ref()
-                .components()
-                .collect::<PathBuf>()
-            )
-        })
+        .map(|p| Ok(p.as_ref().components().collect::<PathBuf>()))
         .collect::<io::Result<Vec<PathBuf>>>()?
         .into_iter()
-       .filter(|p| !is_elfshaker_data_path(p));    
+        .filter(|p| !is_elfshaker_data_path(p));
     Ok(files)
 }
-
 
 /// Checks if the relative path is rooted at the data directory.
 fn is_elfshaker_data_path(p: &Path) -> bool {
@@ -1076,7 +1084,7 @@ fn is_elfshaker_data_path(p: &Path) -> bool {
 mod tests {
     use super::*;
 
-    pub fn get_example_md () -> ObjectMetadata{
+    pub fn get_example_md() -> ObjectMetadata {
         ObjectMetadata {
             size: 1,
             offset: LOOSE_OBJECT_OFFSET,
@@ -1090,7 +1098,6 @@ mod tests {
             bits_mods: 0,
             is_symlink_file: false,
             symlink_target: PathBuf::new(),
-
         }
     }
 
@@ -1107,7 +1114,7 @@ mod tests {
         let path = repo.loose_object_path(&checksum);
         let path_string = path.to_str().unwrap();
         #[cfg(target_family = "windows")]
-        let  path_string = path_string.replace(r"\","/");
+        let path_string = path_string.replace(r"\", "/");
         assert_eq!(
             format!(
                 "/repo/{}/{}/fa/f0/deadbeefbadc0de0faf0deadbeefbadc0de0",
@@ -1139,8 +1146,18 @@ mod tests {
         let path = "/path/to/A";
         let old_checksum = [0; 20];
         let new_checksum = [1; 20];
-        let old_entries = [FileEntry::new(path.into(), old_checksum, get_example_md().clone(), get_example_file_md().clone())];
-        let new_entries = [FileEntry::new(path.into(), new_checksum, get_example_md().clone(), get_example_file_md().clone())];
+        let old_entries = [FileEntry::new(
+            path.into(),
+            old_checksum,
+            get_example_md().clone(),
+            get_example_file_md().clone(),
+        )];
+        let new_entries = [FileEntry::new(
+            path.into(),
+            new_checksum,
+            get_example_md().clone(),
+            get_example_file_md().clone(),
+        )];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(1, added.len());
         assert_eq!(path, added[0].path);
@@ -1156,8 +1173,18 @@ mod tests {
         let path_b_old_checksum = [0; 20];
         let path_a_new_checksum = [1; 20];
         let old_entries = [
-            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
-            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(
+                path_a.into(),
+                path_a_old_checksum,
+                get_example_md().clone(),
+                get_example_file_md().clone(),
+            ),
+            FileEntry::new(
+                path_b.into(),
+                path_b_old_checksum,
+                get_example_md().clone(),
+                get_example_file_md().clone(),
+            ),
         ];
         let new_entries = [FileEntry::new(
             path_a.into(),
@@ -1182,12 +1209,32 @@ mod tests {
         let path_b_old_checksum = [1; 20];
         let path_b_new_checksum = [0; 20];
         let old_entries = [
-            FileEntry::new(path_a.into(), path_a_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
-            FileEntry::new(path_b.into(), path_b_old_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(
+                path_a.into(),
+                path_a_old_checksum,
+                get_example_md().clone(),
+                get_example_file_md().clone(),
+            ),
+            FileEntry::new(
+                path_b.into(),
+                path_b_old_checksum,
+                get_example_md().clone(),
+                get_example_file_md().clone(),
+            ),
         ];
         let new_entries = [
-            FileEntry::new(path_a.into(), path_a_new_checksum, get_example_md().clone(), get_example_file_md().clone()),
-            FileEntry::new(path_b.into(), path_b_new_checksum, get_example_md().clone(), get_example_file_md().clone()),
+            FileEntry::new(
+                path_a.into(),
+                path_a_new_checksum,
+                get_example_md().clone(),
+                get_example_file_md().clone(),
+            ),
+            FileEntry::new(
+                path_b.into(),
+                path_b_new_checksum,
+                get_example_md().clone(),
+                get_example_file_md().clone(),
+            ),
         ];
         let (added, removed) = Repository::compute_entry_diff(&old_entries, &new_entries);
         assert_eq!(2, added.len());

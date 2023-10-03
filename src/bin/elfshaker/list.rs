@@ -55,8 +55,14 @@ fn print_repo_summary(repo: &Repository, bytes: bool) -> Result<(), Box<dyn Erro
         let pack_index = repo.load_index_snapshots(&pack_id)?;
 
         let size_str = match repo.open_pack(&pack_id) {
-            Ok(pack) => if bytes { pack.file_size().to_string() } else { format_size(pack.file_size()) },
-            _ => "-".to_string()
+            Ok(pack) => {
+                if bytes {
+                    pack.file_size().to_string()
+                } else {
+                    format_size(pack.file_size())
+                }
+            }
+            _ => "-".to_string(),
         };
 
         table.push([
@@ -92,7 +98,11 @@ fn print_pack_summary(repo: &Repository, pack: PackId) -> Result<(), Box<dyn Err
     Ok(())
 }
 
-fn print_snapshot_summary(repo: &Repository, snapshot: &SnapshotId, bytes: bool) -> Result<(), Box<dyn Error>> {
+fn print_snapshot_summary(
+    repo: &Repository,
+    snapshot: &SnapshotId,
+    bytes: bool,
+) -> Result<(), Box<dyn Error>> {
     let mut table = vec![];
 
     let idx = repo.load_index(snapshot.pack())?;
@@ -103,7 +113,11 @@ fn print_snapshot_summary(repo: &Repository, snapshot: &SnapshotId, bytes: bool)
     for entry in idx.entries_from_handles(handles.iter())? {
         table.push([
             hex::encode(entry.checksum).to_string(),
-            if bytes { entry.obj_metadata.size.to_string() } else { format_size(entry.obj_metadata.size) },
+            if bytes {
+                entry.obj_metadata.size.to_string()
+            } else {
+                format_size(entry.obj_metadata.size)
+            },
             Path::display(entry.path.as_ref()).to_string(),
         ]);
     }

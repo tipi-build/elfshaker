@@ -5,11 +5,11 @@ mod clone;
 mod extract;
 mod find;
 mod list;
+mod loosen;
 mod pack;
 mod show;
 mod store;
 mod update;
-mod loosen;
 mod utils;
 
 use clap::{App, Arg, ArgMatches};

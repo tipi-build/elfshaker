@@ -11,7 +11,6 @@ use crate::utils::open_repo_from_cwd;
 pub(crate) const SUBCOMMAND: &str = "loosen";
 
 pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
-
     let is_verify = matches.is_present("verify");
     let is_force = matches.is_present("force");
 

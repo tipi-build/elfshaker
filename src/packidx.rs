@@ -254,16 +254,21 @@ pub struct FileEntry {
     pub path: OsString,
     pub checksum: ObjectChecksum,
     pub obj_metadata: ObjectMetadata,
-    pub file_metadata: FileMetadata
+    pub file_metadata: FileMetadata,
 }
 
 impl FileEntry {
-    pub fn new(path: OsString, checksum: ObjectChecksum, obj_metadata: ObjectMetadata, file_metadata: FileMetadata) -> Self {
+    pub fn new(
+        path: OsString,
+        checksum: ObjectChecksum,
+        obj_metadata: ObjectMetadata,
+        file_metadata: FileMetadata,
+    ) -> Self {
         Self {
             path,
             checksum,
             obj_metadata,
-            file_metadata
+            file_metadata,
         }
     }
 }
@@ -272,15 +277,15 @@ impl FileEntry {
 pub struct FileMetadata {
     pub last_modified: i64,
     pub last_modified_nanos: u32,
-    pub bits_mods : u32,
-    pub is_symlink_file :bool,
-    pub symlink_target : PathBuf
+    pub bits_mods: u32,
+    pub is_symlink_file: bool,
+    pub symlink_target: PathBuf,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub struct ObjectMetadata {
     pub offset: u64,
-    pub size: u64
+    pub size: u64,
 }
 
 /// Contains the metadata needed to extract files from a pack file.
@@ -371,7 +376,10 @@ impl PackIndex {
         self.object_pool.lookup(h).unwrap()
     }
     pub fn handle_to_entry(&self, handle: &FileHandle) -> Result<FileEntry, PackError> {
-        let entry_path = self.path_pool.lookup(handle.path).ok_or(PackError::PathNotFound(handle.path))?;
+        let entry_path = self
+            .path_pool
+            .lookup(handle.path)
+            .ok_or(PackError::PathNotFound(handle.path))?;
 
         Ok(FileEntry {
             path: entry_path.clone(),
@@ -385,9 +393,11 @@ impl PackIndex {
     }
     pub fn entry_to_handle(&mut self, entry: &FileEntry) -> Result<FileHandle, PackError> {
         let object_handle = self.object_pool.get_or_insert(&entry.checksum);
-        self.object_metadata.insert(object_handle, entry.obj_metadata.clone());
+        self.object_metadata
+            .insert(object_handle, entry.obj_metadata.clone());
 
-        self.file_metadata.insert(entry.path.clone(), entry.file_metadata.clone());
+        self.file_metadata
+            .insert(entry.path.clone(), entry.file_metadata.clone());
 
         Ok(FileHandle {
             path: self.path_pool.get_or_insert(&entry.path),
@@ -621,7 +631,13 @@ impl Serialize for PackIndex {
         s.serialize_element(&self.path_pool)?;
         s.serialize_element(&self.object_pool)?;
         // Ordering comes from BTreeMap keys, so is for free.
-        s.serialize_element(&self.object_metadata.values().cloned().collect::<Vec<ObjectMetadata>>())?;
+        s.serialize_element(
+            &self
+                .object_metadata
+                .values()
+                .cloned()
+                .collect::<Vec<ObjectMetadata>>(),
+        )?;
         s.serialize_element(&self.file_metadata)?;
         s.end()
     }
