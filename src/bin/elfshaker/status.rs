@@ -4,6 +4,7 @@
 use clap::{App, Arg, ArgMatches};
 use crypto::{digest::Digest, sha1::Sha1};
 use elfshaker::repo::{Repository, SnapshotId};
+use log::info;
 //use rand::RngCore;
 use std::{error::Error as StdError, fs::File, io::Read, path::Path};
 
@@ -89,16 +90,27 @@ fn probe_snapshot_files(
         let path = Path::new(&entry.path);
         let changed = if path.exists() == false {
             // missing in workspace
+            info!("not in workspace {}", path.display());
             true
         } else {
             let workspace_checksum = calculate_sha1(&path)?; // [0u8; 20];
-            if entry.checksum != workspace_checksum {
-                true
+
+            let changed = entry.checksum != workspace_checksum;
+
+            if changed {
+                info!(
+                    "changed \"{}\": index.checksum: {}; fs.checksum: {}",
+                    path.display(),
+                    hex::encode(entry.checksum),
+                    hex::encode(workspace_checksum)
+                );
             } else {
-                false
+                info!("same \"{}\"", path.display());
             }
+
+            changed
         };
-        //println!("{}", hex::encode(entry.checksum).to_string());
+
         if changed {
             changed_files.push(path.display().to_string());
         }
