@@ -1,9 +1,7 @@
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use predicates::prelude::*;
-use std::fs::File;
-use std::io::Write;
-use std::process::Command;
+use std::{fs::remove_file, process::Command};
 
 // main use case: loosen and repackage in order to add a snapshot to an existing pack. Should be
 // faster than unpacking each single snapshot.
@@ -118,6 +116,90 @@ fn package_file_see_status() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(
         "[\"./foo.txt\"]\n".to_string(),
         String::from_utf8_lossy(&dirty.stdout)
+    );
+
+    Ok(())
+}
+
+#[test]
+fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new().unwrap();
+
+    // 1. prepare: file foo.txt and snapshot
+    let foo_file = temp.child("foo.txt");
+    foo_file.touch().unwrap();
+    foo_file
+        .write_str("Snapshot 1 contents")
+        .expect("unable to write initially");
+
+    let mut symlink_file = temp.to_path_buf();
+    symlink_file.push("link.txt");
+
+    cfg_if::cfg_if! {
+        if #[cfg(target_family = "unix")] {
+            use std::os::unix::fs::symlink;
+        } else if #[cfg(target_family = "windows")] {
+            use std::os::windows::fs::symlink;
+        } else {
+            compile_error!("symlink not implemented for target_family");
+        }
+    }
+    symlink(foo_file.path(), &symlink_file).expect("unable to create symlink");
+
+    // 2. prepare: create first snapshot
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["store", "snapshot1"]);
+    cmd.current_dir(temp.path());
+    cmd.assert().success();
+
+    // 3. prepare: pack first snapshot
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["pack", "pack1"]);
+    cmd.current_dir(temp.path());
+    cmd.assert().success();
+
+    // 4. check status
+
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["status", "--json", "pack1:snapshot1"]);
+    cmd.current_dir(temp.path());
+    let clean = cmd.output()?;
+    assert!(clean.status.success());
+    assert_eq!(b"[]\n".as_ref(), clean.stdout);
+    //.assert().success();
+
+    // 5. modify file
+    println!("modify foo.txt");
+    foo_file
+        .write_str("Snapshot 1 contents appended")
+        .expect("unable to update foo.txt");
+
+    // 6. check status: ["foo.txt"]
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["status", "--json", "pack1:snapshot1"]);
+    cmd.current_dir(temp.path());
+    let dirty = cmd.output()?;
+    assert!(dirty.status.success());
+    assert_eq!(
+        "[\"./foo.txt\"]\n".to_string(),
+        String::from_utf8_lossy(&dirty.stdout)
+    );
+
+    // 7. modify symlink
+    let bar_file = temp.child("bar.txt");
+    bar_file.touch().unwrap();
+    remove_file(&symlink_file).expect("unable to remove symlink_file");
+    symlink(&bar_file, symlink_file).expect("unable to update symlink");
+
+    // 8. check status:
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["status", "--json", "pack1:snapshot1"]);
+    cmd.current_dir(temp.path());
+    let dirty = cmd.output()?;
+    assert!(dirty.status.success());
+    assert_eq!(
+        r#"["./foo.txt","./link.txt"]"#.to_string(),
+        String::from_utf8_lossy(&dirty.stdout).trim()
     );
 
     Ok(())

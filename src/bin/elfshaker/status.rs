@@ -3,10 +3,10 @@
 
 use clap::{App, Arg, ArgMatches};
 use crypto::{digest::Digest, sha1::Sha1};
-use elfshaker::repo::{Repository, SnapshotId};
+use elfshaker::repo::{fs::open_file, Repository, SnapshotId};
 use log::info;
 //use rand::RngCore;
-use std::{error::Error as StdError, fs::File, io::Read, path::Path};
+use std::{error::Error as StdError, fs, io::Read, path::Path};
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
 //use elfshaker::repo::fs::open_file;
@@ -88,27 +88,61 @@ fn probe_snapshot_files(
 
     for entry in idx.entries_from_handles(handles.iter())? {
         let path = Path::new(&entry.path);
+
         let changed = if path.exists() == false {
             // missing in workspace
             info!("not in workspace {}", path.display());
             true
         } else {
-            let workspace_checksum = calculate_sha1(&path)?; // [0u8; 20];
+            let workspace_is_symlink = path.is_symlink();
 
-            let changed = entry.checksum != workspace_checksum;
-
-            if changed {
+            if entry.file_metadata.is_symlink_file != workspace_is_symlink {
                 info!(
-                    "changed \"{}\": index.checksum: {}; fs.checksum: {}",
-                    path.display(),
-                    hex::encode(entry.checksum),
-                    hex::encode(workspace_checksum)
+                    "symlink status differs from recording for {}",
+                    path.display()
                 );
+                true
             } else {
-                info!("same \"{}\"", path.display());
-            }
+                if workspace_is_symlink {
+                    let workspace_target = fs::read_link(path)?;
+                    let changed = entry.file_metadata.symlink_target != workspace_target;
+                    if changed {
+                        info!(
+                            "changed \"{}\": index.symlink: {}; fs.symlink: {};",
+                            path.display(),
+                            entry.file_metadata.symlink_target.display(),
+                            workspace_target.display()
+                        );
+                        true
+                    } else {
+                        info!(
+                            "same \"{}\": symlink_target: {};",
+                            path.display(),
+                            workspace_target.display()
+                        );
+                        false
+                    }
+                } else {
+                    let workspace_checksum = calculate_sha1(&path)?;
 
-            changed
+                    if entry.checksum != workspace_checksum {
+                        info!(
+                            "changed \"{}\": index.checksum: {}; fs.checksum: {};",
+                            path.display(),
+                            hex::encode(entry.checksum),
+                            hex::encode(workspace_checksum)
+                        );
+                        true
+                    } else {
+                        info!(
+                            "same \"{}\": checksum: {};",
+                            path.display(),
+                            hex::encode(workspace_checksum)
+                        );
+                        false
+                    }
+                }
+            }
         };
 
         if changed {
@@ -122,8 +156,8 @@ fn probe_snapshot_files(
 }
 
 fn calculate_sha1(path: &Path) -> std::io::Result<[u8; 20]> {
-    let mut file = File::open(path)?;
-    let size = file.metadata().map(|m| m.len() as usize).ok();
+    let mut file = open_file(path)?;
+    let size = file.metadata().map(|m| m.len() as usize);
     let mut buffer = Vec::with_capacity(size.unwrap_or(0));
 
     file.read_to_end(&mut buffer)?;
