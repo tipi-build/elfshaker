@@ -139,7 +139,7 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
         if #[cfg(target_family = "unix")] {
             use std::os::unix::fs::symlink;
         } else if #[cfg(target_family = "windows")] {
-            use std::os::windows::fs::symlink;
+            use std::os::windows::fs::symlink_file as symlink;
         } else {
             compile_error!("symlink not implemented for target_family");
         }
