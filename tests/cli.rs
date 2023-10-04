@@ -69,3 +69,56 @@ fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
         .stdout(predicate::str::contains("snapshot2"));
     Ok(())
 }
+
+#[test]
+fn package_file_see_status() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = assert_fs::TempDir::new().unwrap();
+
+    // 1. prepare: file foo.txt
+    let foo_file = temp.child("foo.txt");
+    foo_file.touch().unwrap();
+    foo_file
+        .write_str("Snapshot 1 contents")
+        .expect("unable to write initially");
+
+    // 2. prepare: create first snapshot
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["store", "snapshot1"]);
+    cmd.current_dir(temp.path());
+    cmd.assert().success();
+
+    // 3. prepare: pack first snapshot
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["pack", "pack1"]);
+    cmd.current_dir(temp.path());
+    cmd.assert().success();
+
+    // 4. check status
+
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["status", "--json", "pack1:snapshot1"]);
+    cmd.current_dir(temp.path());
+    let clean = cmd.output()?;
+    assert!(clean.status.success());
+    assert_eq!(b"[]\n".as_ref(), clean.stdout);
+    //.assert().success();
+
+    // 5. modify file
+    println!("modify foo.txt");
+    foo_file
+        .write_str("Snapshot 1 contents appended")
+        .expect("unable to update foo.txt");
+
+    // 6. check status: ["foo.txt"]
+    let mut cmd = Command::cargo_bin("elfshaker")?;
+    cmd.args(["status", "--json", "pack1:snapshot1"]);
+    cmd.current_dir(temp.path());
+    let dirty = cmd.output()?;
+    assert!(dirty.status.success());
+    assert_eq!(
+        "[\"./foo.txt\"]\n".to_string(),
+        String::from_utf8_lossy(&dirty.stdout)
+    );
+
+    Ok(())
+}
