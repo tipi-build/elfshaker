@@ -12,10 +12,13 @@ fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
     let temp = assert_fs::TempDir::new().unwrap();
 
     // 1. prepare: file foo.txt
-    let input_file = temp.child("foo.txt");
-    input_file.touch().unwrap();
-    let mut file = File::open(input_file).unwrap();
-    let _ = file.write("Snapshot 1 contents".as_ref());
+    let foo_file = temp.child("foo.txt");
+    println!("testing with {:#?}", foo_file.display());
+    foo_file.touch().unwrap();
+
+    foo_file
+        .write_str("Snapshot 1 contents")
+        .expect("unable to initialise foo.txt");
 
     // 2. prepare: create first snapshot
     let mut cmd = Command::cargo_bin("elfshaker")?;
@@ -32,10 +35,11 @@ fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
     // preparation done. we have a pack (same situation as downloaded pack with index)
 
     // 4. local state changes
-    let input_file = temp.child("bar.txt");
-    input_file.touch().unwrap();
-    let mut file = File::open(input_file).unwrap();
-    let _ = file.write("Snapshot 2 contents".as_ref());
+    let bar_file = temp.child("bar.txt");
+    bar_file.touch().unwrap();
+    bar_file
+        .write_str("Snapshot 2 contents")
+        .expect("unable to write");
 
     // 5. loosen prepared/downloaded pack
     let mut cmd = Command::cargo_bin("elfshaker")?;
