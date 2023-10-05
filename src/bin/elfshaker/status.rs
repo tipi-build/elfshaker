@@ -2,11 +2,16 @@
 //! Copyright (C) 2023 Tipi technologies or its affiliates and Contributors. All rights reserved.
 
 use clap::{App, Arg, ArgMatches};
-use crypto::{digest::Digest, sha1::Sha1};
+use crypto::{buffer, digest::Digest, sha1::Sha1};
 use elfshaker::repo::{fs::open_file, Repository, SnapshotId};
 use log::info;
 //use rand::RngCore;
-use std::{error::Error as StdError, fs, io::Read, path::Path};
+use std::{
+    error::Error as StdError,
+    fs,
+    io::{BufReader, Read},
+    path::Path,
+};
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
 //use elfshaker::repo::fs::open_file;
@@ -156,16 +161,21 @@ fn probe_snapshot_files(
 }
 
 fn calculate_sha1(path: &Path) -> std::io::Result<[u8; 20]> {
-    let mut file = open_file(path)?;
-    let size = file.metadata().map(|m| m.len() as usize);
-    let mut buffer = Vec::with_capacity(size.unwrap_or(0));
-
-    file.read_to_end(&mut buffer)?;
+    let file = open_file(path)?;
+    let mut file_handler = BufReader::new(file);
 
     let mut checksum = [0u8; 20];
 
     let mut hasher = Sha1::new();
-    hasher.input(&buffer);
+
+    let mut buffer = vec![0u8; 4096];
+    while let Ok(bytes_read) = file_handler.read(&mut buffer) {
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.input(&buffer[..bytes_read]);
+    }
+
     hasher.result(&mut checksum);
 
     Ok(checksum)
