@@ -32,7 +32,10 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         let _ = fs::remove_dir_all(temp_directory);
         return Err(e);
     };
-    fs::rename(original_cwd.join(temp_directory), original_cwd.join(directory))?;
+    fs::rename(
+        original_cwd.join(temp_directory),
+        original_cwd.join(directory),
+    )?;
 
     Ok(())
 }
@@ -41,7 +44,7 @@ fn do_clone(directory: &Path, origin_url: &str) -> Result<(), Box<dyn Error>> {
     fs::create_dir(directory)?;
     fs::create_dir(directory.join(&*Repository::data_dir()))?;
 
-    let mut repo = Repository::open(&directory)?;
+    let mut repo = Repository::open(directory)?;
 
     repo.set_progress_reporter(|msg| create_percentage_print_reporter(msg, 5));
     repo.add_remote("origin", origin_url)?;
@@ -69,5 +72,5 @@ pub(crate) fn get_app() -> App<'static, 'static> {
 fn create_random_name() -> String {
     let mut bytes = [0u8; 8];
     rand::thread_rng().fill_bytes(&mut bytes);
-    hex::encode(&bytes)
+    hex::encode(bytes)
 }

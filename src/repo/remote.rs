@@ -368,14 +368,16 @@ fn read_remote_resource(
     if_modified_since: Option<SystemTime>,
 ) -> Result<Option<Vec<u8>>, Error> {
     open_remote_resource(agent, url, Some(timeout), if_modified_since).and_then(|opt_reader| {
-        opt_reader.map(|mut reader| {
-            let mut body: Vec<u8> = vec![];
-            reader
-                .1
-                .read_to_end(&mut body)
-                .map_err(|e| Error::HttpError(e.into()))
-                .map(|_| body)
-        }).map_or(Ok(None), |v| v.map(Some))
+        opt_reader
+            .map(|mut reader| {
+                let mut body: Vec<u8> = vec![];
+                reader
+                    .1
+                    .read_to_end(&mut body)
+                    .map_err(|e| Error::HttpError(e.into()))
+                    .map(|_| body)
+            })
+            .map_or(Ok(None), |v| v.map(Some))
     })
 }
 
@@ -387,12 +389,12 @@ pub fn update_remote_pack(
     pack_path: &Path,
     reporter: &ProgressReporter,
 ) -> Result<(), Error> {
-    let date_modified = fs::metadata(&pack_path)
-        .ok()
-        .and_then(|x| x.modified().ok());
+    let date_modified = fs::metadata(pack_path).ok().and_then(|x| x.modified().ok());
 
     let url = remote_pack.url.parse::<Url>().unwrap();
-    if let Some((content_length, mut reader)) = open_remote_resource(agent, &url, None, date_modified)? {
+    if let Some((content_length, mut reader)) =
+        open_remote_resource(agent, &url, None, date_modified)?
+    {
         let mut data = vec![];
 
         let mut writer = ProgressWriter::with_known_size(&mut data, reporter, content_length);
@@ -435,7 +437,7 @@ pub fn update_remote_pack_indexes(
             // The file exists and the checksums match -> skip
             log::info!("{} is up to date", pack_index_path.display());
         } else {
-            update_pack_index(&agent, &url, &pack_index_path)?;
+            update_pack_index(agent, &url, &pack_index_path)?;
         }
 
         done += 1;
@@ -448,16 +450,12 @@ pub fn update_remote_pack_indexes(
 /// Updates the pack index file by fetching its contents from the URL only
 /// when the content at the URL is newer than what is available on-disk.
 fn update_pack_index(agent: &Agent, url: &Url, pack_index_path: &Path) -> Result<(), Error> {
-    let date_modified = fs::metadata(&pack_index_path)
+    let date_modified = fs::metadata(pack_index_path)
         .ok()
         .and_then(|x| x.modified().ok());
 
-    let pack_index_bytes = read_remote_resource(
-        agent,
-        url,
-        Duration::from_secs(15),
-        date_modified,
-    )?;
+    let pack_index_bytes =
+        read_remote_resource(agent, url, Duration::from_secs(15), date_modified)?;
 
     if let Some(pack_index_bytes) = pack_index_bytes {
         if let Err(e) = PackIndex::parse(pack_index_bytes.as_slice()) {
@@ -472,7 +470,7 @@ fn update_pack_index(agent: &Agent, url: &Url, pack_index_path: &Path) -> Result
                 pack_index_path.display(),
                 pack_index_bytes.len()
             );
-            fs::write(&pack_index_path, pack_index_bytes.as_slice()).map_err(Error::IOError)?;
+            fs::write(pack_index_path, pack_index_bytes.as_slice()).map_err(Error::IOError)?;
         }
     }
     Ok(())
@@ -481,11 +479,12 @@ fn update_pack_index(agent: &Agent, url: &Url, pack_index_path: &Path) -> Result
 /// Fetches the remote index from the server.
 pub fn fetch_remote(agent: &Agent, url: &str, path: &Path) -> Result<RemoteIndex, Error> {
     let url = url.parse::<Url>().unwrap();
-    let response =
-        read_remote_resource(agent, &url, Duration::from_secs(15), None)?;
+    let response = read_remote_resource(agent, &url, Duration::from_secs(15), None)?;
 
     match response {
-        None => unreachable!("Unexpected Not-Modified response from server given previously unseen resource"),
+        None => unreachable!(
+            "Unexpected Not-Modified response from server given previously unseen resource"
+        ),
         Some(data) => {
             let mut remote = RemoteIndex::read(BufReader::new(data.as_slice())).reify(url)?;
             // Update the .esi
@@ -511,16 +510,11 @@ pub fn update_remote(agent: &Agent, remote: &RemoteIndex) -> Result<RemoteIndex,
     // Read the modification date of the .esi.
     let date_modified = fs::metadata(path).ok().and_then(|x| x.modified().ok());
     let url = remote.url.parse::<Url>().unwrap();
-    let response = read_remote_resource(
-        agent,
-        &url,
-        Duration::from_secs(15),
-        date_modified,
-    )?;
+    let response = read_remote_resource(agent, &url, Duration::from_secs(15), date_modified)?;
 
     match response {
         // The local version is up-to-date.
-        None => RemoteIndex::load(&path).reify(path.display()),
+        None => RemoteIndex::load(path).reify(path.display()),
         Some(data) => {
             let mut remote = RemoteIndex::read(BufReader::new(data.as_slice())).reify(url)?;
             // Update the .esi
@@ -571,7 +565,7 @@ fn compute_checksum(path: &Path) -> io::Result<ObjectChecksum> {
 /// GMT`
 fn format_http_date(t: SystemTime) -> String {
     let datetime: DateTime<Utc> = t.into();
-    return format!("{}", datetime.format("%a, %d %h %Y %H:%M:%S GMT"));
+    format!("{}", datetime.format("%a, %d %h %Y %H:%M:%S GMT"))
 }
 
 #[cfg(test)]

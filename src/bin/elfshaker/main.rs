@@ -5,11 +5,12 @@ mod clone;
 mod extract;
 mod find;
 mod list;
+mod loosen;
 mod pack;
 mod show;
+mod status;
 mod store;
 mod update;
-mod loosen;
 mod utils;
 
 use clap::{App, Arg, ArgMatches};
@@ -45,6 +46,7 @@ fn run_subcommand(app: &mut App, matches: ArgMatches) -> Result<(), Box<dyn Erro
         (extract::SUBCOMMAND, Some(matches)) => extract::run(matches),
         (store::SUBCOMMAND, Some(matches)) => store::run(matches),
         (list::SUBCOMMAND, Some(matches)) => list::run(matches),
+        (status::SUBCOMMAND, Some(matches)) => status::run(matches),
         (pack::SUBCOMMAND, Some(matches)) => pack::run(matches),
         (show::SUBCOMMAND, Some(matches)) => show::run(matches),
         (find::SUBCOMMAND, Some(matches)) => find::run(matches),
@@ -64,6 +66,7 @@ fn get_app() -> App<'static, 'static> {
         .subcommand(extract::get_app())
         .subcommand(store::get_app())
         .subcommand(list::get_app())
+        .subcommand(status::get_app())
         .subcommand(pack::get_app())
         .subcommand(show::get_app())
         .subcommand(find::get_app())

@@ -25,10 +25,10 @@ use super::constants::{
     DEFAULT_WINDOW_LOG_MAX, PACKS_DIR, PACK_EXTENSION, PACK_HEADER_MAGIC, PACK_INDEX_EXTENSION,
 };
 use super::error::Error;
-use super::fs::{create_file,open_file};
+use super::fs::{create_file, open_file};
 use super::repository::Repository;
 use super::{algo::run_in_parallel, constants::DOT_PACK_INDEX_EXTENSION};
-use crate::packidx::{FileEntry, ObjectChecksum, PackError, FileMetadata};
+use crate::packidx::{FileEntry, FileMetadata, ObjectChecksum, PackError};
 use crate::{log::measure_ok, packidx::ObjectMetadata};
 
 #[cfg(target_family = "unix")]
@@ -40,8 +40,8 @@ use std::os::windows::fs::symlink_file;
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::symlink;
 
-use fs2::FileExt;
 use crate::atomicfile::AtomicCreateFile;
+use fs2::FileExt;
 
 /// Pack and snapshots IDs can contain latin letter, digits or the following characters.
 const EXTRA_ID_CHARS: &[char] = &['-', '_', '/'];
@@ -333,7 +333,7 @@ impl Pack {
 
     /// Opens the pack file for reading.
     fn open_pack(pack_path: &Path) -> Result<(u64, PackHeader, Vec<PackReader>), Error> {
-        let file = open_file(&pack_path)?;
+        let file = open_file(pack_path)?;
         let file_size = file.metadata()?.len();
         let mut reader = io::BufReader::new(file);
 
@@ -352,7 +352,7 @@ impl Pack {
         let frame_readers = frame_offsets
             .iter()
             .map(|offset| -> Result<_, Error> {
-                let mut reader = open_file(&pack_path)?;
+                let mut reader = open_file(pack_path)?;
                 io::Seek::seek(&mut reader, io::SeekFrom::Start(header_size + offset))?;
                 let mut reader = Decoder::new(reader)?;
                 reader.set_parameter(DParameter::WindowLogMax(DEFAULT_WINDOW_LOG_MAX))?;
@@ -367,7 +367,7 @@ impl Pack {
 
     /// Backwards-compatible open_pack for the legacy pack format (no skippable frame/no header).
     fn open_pack_legacy(pack_path: &Path) -> Result<(u64, PackHeader, Vec<PackReader>), Error> {
-        let file = open_file(&pack_path)?;
+        let file = open_file(pack_path)?;
         let file_size = file.metadata()?.len();
 
         // This manufactured pack header works for the current implementation. We might
@@ -505,12 +505,12 @@ fn verify_object(buf: &[u8], exp_checksum: &ObjectChecksum) -> Result<(), Error>
     Ok(())
 }
 
-fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error> {
+fn create_symlink_safely(path: &Path, symlink_target: &PathBuf) -> Result<(), Error> {
     let is_symlink_file_exist = Path::new(&path).is_symlink();
-    if is_symlink_file_exist{
-       let symlink_target_read = fs::read_link(&path)?;
+    if is_symlink_file_exist {
+        let symlink_target_read = fs::read_link(path)?;
         if symlink_target_read.as_os_str() == symlink_target.as_os_str() {
-            return Ok(())
+            return Ok(());
         }
     }
 
@@ -521,8 +521,8 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
         symlink(symlink_target, path)?;
     } else {
         // symlink target does not yet exist - create a temporary dummy
-        let f = AtomicCreateFile::new(&symlink_target)?;
-        f.commit_content("".as_bytes())?; 
+        let f = AtomicCreateFile::new(symlink_target)?;
+        f.commit_content("".as_bytes())?;
 
         #[cfg(target_family = "windows")]
         let result_symlink = symlink_file(symlink_target, path);
@@ -533,18 +533,24 @@ fn create_symlink_safely(path: &Path,symlink_target:&PathBuf)-> Result<(), Error
         result_symlink?;
     }
     Ok(())
-
 }
-
 
 /// Writes the object to the specified path, taking care
 /// of adjusting file permissions.
-fn write_object(buf: &[u8], path: &Path, _obj_metadata: &ObjectMetadata, file_metadata: &FileMetadata) -> Result<(), Error> {
+fn write_object(
+    buf: &[u8],
+    path: &Path,
+    _obj_metadata: &ObjectMetadata,
+    file_metadata: &FileMetadata,
+) -> Result<(), Error> {
     fs::create_dir_all(path.parent().unwrap())?;
 
-    if file_metadata.is_symlink_file && !file_metadata.symlink_target.as_os_str().is_empty() && (file_metadata.symlink_target.file_stem() != path.file_stem()) {
-        create_symlink_safely(path,&file_metadata.symlink_target)?;
-    }else{
+    if file_metadata.is_symlink_file
+        && !file_metadata.symlink_target.as_os_str().is_empty()
+        && (file_metadata.symlink_target.file_stem() != path.file_stem())
+    {
+        create_symlink_safely(path, &file_metadata.symlink_target)?;
+    } else {
         if path.is_file() {
             let mut f = create_file(path)?;
             #[cfg(target_family = "windows")]
@@ -553,14 +559,26 @@ fn write_object(buf: &[u8], path: &Path, _obj_metadata: &ObjectMetadata, file_me
             f.lock_exclusive()?;
             f.write_all(buf)?;
         } else {
-            let f = AtomicCreateFile::new(&path)?;
+            let f = AtomicCreateFile::new(path)?;
             f.commit_content(buf)?;
         }
-        
-        // TODO: this should be fixed so it updates to the most recent time in that folder. Probably best done in a 2 stage fashing 
+
+        // TODO: this should be fixed so it updates to the most recent time in that folder. Probably best done in a 2 stage fashing
         // to not repeatedly write the data
-        set_file_mtime(path.parent().unwrap(), FileTime::from_unix_time(file_metadata.last_modified, file_metadata.last_modified_nanos))?; 
-        set_file_mtime(&path, FileTime::from_unix_time(file_metadata.last_modified, file_metadata.last_modified_nanos))?; 
+        set_file_mtime(
+            path.parent().unwrap(),
+            FileTime::from_unix_time(
+                file_metadata.last_modified,
+                file_metadata.last_modified_nanos,
+            ),
+        )?;
+        set_file_mtime(
+            path,
+            FileTime::from_unix_time(
+                file_metadata.last_modified,
+                file_metadata.last_modified_nanos,
+            ),
+        )?;
         #[cfg(target_family = "unix")]
         fs::set_permissions(path, fs::Permissions::from_mode(file_metadata.bits_mods)).unwrap();
     }
@@ -620,10 +638,10 @@ fn assign_to_frames(
             FileMetadata {
                 last_modified: entry.file_metadata.last_modified,
                 last_modified_nanos: entry.file_metadata.last_modified_nanos,
-                bits_mods:entry.file_metadata.bits_mods,
+                bits_mods: entry.file_metadata.bits_mods,
                 is_symlink_file: entry.file_metadata.is_symlink_file,
-                symlink_target: entry.file_metadata.symlink_target.clone(), 
-            }
+                symlink_target: entry.file_metadata.symlink_target.clone(),
+            },
         );
         frames[frame_index].push(local_entry);
     }
@@ -737,9 +755,16 @@ fn extract_files(
             path_buf.clear();
             path_buf.push(&output_dir);
             path_buf.push(&entry.path);
-            stats.write_time += measure_ok(|| write_object(&buf[..], &path_buf, &entry.obj_metadata, &entry.file_metadata))?
-                .0
-                .as_secs_f64();
+            stats.write_time += measure_ok(|| {
+                write_object(
+                    &buf[..],
+                    &path_buf,
+                    &entry.obj_metadata,
+                    &entry.file_metadata,
+                )
+            })?
+            .0
+            .as_secs_f64();
         }
 
         Ok(())
@@ -758,8 +783,20 @@ mod tests {
         ObjectMetadata { offset, size }
     }
 
-    fn make_file_md(last_modified: i64, last_modified_nanos: u32,bits_mods:u32,is_symlink_file:bool,symlink_target:PathBuf) -> FileMetadata {
-        FileMetadata {last_modified, last_modified_nanos, bits_mods, is_symlink_file, symlink_target }
+    fn make_file_md(
+        last_modified: i64,
+        last_modified_nanos: u32,
+        bits_mods: u32,
+        is_symlink_file: bool,
+        symlink_target: PathBuf,
+    ) -> FileMetadata {
+        FileMetadata {
+            last_modified,
+            last_modified_nanos,
+            bits_mods,
+            is_symlink_file,
+            symlink_target,
+        }
     }
 
     #[test]
@@ -801,8 +838,18 @@ mod tests {
             decompressed_size: 1000,
         }];
         let entries = [
-            FileEntry::new("A".into(), [0; 20], make_md(50, 1), make_file_md(0,0,0,false,"A".into())),
-            FileEntry::new("B".into(), [1; 20], make_md(50, 1), make_file_md(0,0,0,false,"B".into())),
+            FileEntry::new(
+                "A".into(),
+                [0; 20],
+                make_md(50, 1),
+                make_file_md(0, 0, 0, false, "A".into()),
+            ),
+            FileEntry::new(
+                "B".into(),
+                [1; 20],
+                make_md(50, 1),
+                make_file_md(0, 0, 0, false, "B".into()),
+            ),
         ];
         let result = assign_to_frames(&frames, &entries).unwrap();
         assert_eq!(1, result.len());
@@ -821,16 +868,36 @@ mod tests {
             },
         ];
         let entries = [
-            FileEntry::new("A".into(), [0; 20], make_md(800, 200), make_file_md(0,0,0,false,"A".into())),
-            FileEntry::new("B".into(), [1; 20], make_md(1200, 200), make_file_md(0,0,0,false,"B".into())),
+            FileEntry::new(
+                "A".into(),
+                [0; 20],
+                make_md(800, 200),
+                make_file_md(0, 0, 0, false, "A".into()),
+            ),
+            FileEntry::new(
+                "B".into(),
+                [1; 20],
+                make_md(1200, 200),
+                make_file_md(0, 0, 0, false, "B".into()),
+            ),
         ];
         let frame_1_entries = [
             // Offset is same
-            FileEntry::new("A".into(), [0; 20], make_md(800, 200), make_file_md(0,0,0,false,"A".into())),
+            FileEntry::new(
+                "A".into(),
+                [0; 20],
+                make_md(800, 200),
+                make_file_md(0, 0, 0, false, "A".into()),
+            ),
         ];
         let frame_2_entries = [
             // Offset 1200 -> 200
-            FileEntry::new("B".into(), [1; 20], make_md(200, 200), make_file_md(0,0,0,false,"B".into())),
+            FileEntry::new(
+                "B".into(),
+                [1; 20],
+                make_md(200, 200),
+                make_file_md(0, 0, 0, false, "B".into()),
+            ),
         ];
         let result = assign_to_frames(&frames, &entries).unwrap();
         assert_eq!(2, result.len());
