@@ -45,7 +45,7 @@ jobs:
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
           ./rustup-init.exe -q -y
           cargo  build --release --bin elfshaker
-          cargo test
+          cargo test --verbose
           Compress-Archive -Path .\target\release\elfshaker.exe -DestinationPath ./elfshaker-win.zip
       - uses: actions/upload-artifact@v3
         with:
@@ -76,7 +76,7 @@ jobs:
           ./sh.rustup.sh -q -y
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
-          cargo test
+          cargo test --verbose
           zip -j elfshaker-macos.zip ./target/release/elfshaker
       - uses: actions/upload-artifact@v3
         with:
@@ -111,7 +111,7 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
-          cargo test
+          cargo test --verbose
           zip -j elfshaker-linux.zip ./target/release/elfshaker
       - uses: actions/upload-artifact@v3
         with:
