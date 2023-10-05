@@ -7,7 +7,7 @@ on:
       - develop
   pull_request:
 env:
-  version_in_development: v0.0.12
+  version_in_development: v0.0.13
 
 jobs:
   draft-release:
@@ -45,7 +45,7 @@ jobs:
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
           ./rustup-init.exe -q -y
           cargo  build --release --bin elfshaker
-          cargo test --verbose
+          cargo test
           Compress-Archive -Path .\target\release\elfshaker.exe -DestinationPath ./elfshaker-win.zip
       - uses: actions/upload-artifact@v3
         with:
@@ -75,7 +75,7 @@ jobs:
           ./sh.rustup.sh -q -y
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
-          cargo test --verbose
+          cargo test
           zip -j elfshaker-macos.zip ./target/release/elfshaker
       - uses: actions/upload-artifact@v3
         with:
@@ -102,14 +102,14 @@ jobs:
       - uses: actions/checkout@v2
       - name: install and build 
         run: |
-          apt install zip -y
+          sudo apt update && sudo apt install zip -y
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
           ./sh.rustup.sh -q -y --no-modify-path
           export PATH="$HOME/.cargo/bin:$PATH"
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
-          cargo test --verbose
+          cargo test
           zip -j elfshaker-linux.zip ./target/release/elfshaker
       - uses: actions/upload-artifact@v3
         with:
