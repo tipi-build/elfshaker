@@ -2,15 +2,20 @@
 //! Copyright (C) 2023 Tipi technologies or its affiliates and Contributors. All rights reserved.
 
 use clap::{App, Arg, ArgMatches};
-use crypto::{buffer, digest::Digest, sha1::Sha1};
-use elfshaker::repo::{fs::open_file, Repository, SnapshotId};
+use crypto::{digest::Digest, sha1::Sha1};
+use elfshaker::repo::{
+    fs::{get_last_modified, open_file},
+    Repository, SnapshotId,
+};
+use filetime::FileTime;
 use log::info;
 //use rand::RngCore;
 use std::{
     error::Error as StdError,
-    fs,
+    fs::{self, FileType},
     io::{BufReader, Read},
     path::Path,
+    time::SystemTime,
 };
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
@@ -128,23 +133,34 @@ fn probe_snapshot_files(
                         false
                     }
                 } else {
-                    let workspace_checksum = calculate_sha1(&path)?;
-
-                    if entry.checksum != workspace_checksum {
-                        info!(
-                            "changed \"{}\": index.checksum: {}; fs.checksum: {};",
-                            path.display(),
-                            hex::encode(entry.checksum),
-                            hex::encode(workspace_checksum)
-                        );
-                        true
-                    } else {
-                        info!(
-                            "same \"{}\": checksum: {};",
-                            path.display(),
-                            hex::encode(workspace_checksum)
-                        );
+                    let workspace_mtime = get_last_modified(path.metadata()?);
+                    if workspace_mtime.is_some()
+                        && FileTime::from_unix_time(
+                            entry.file_metadata.last_modified,
+                            entry.file_metadata.last_modified_nanos,
+                        ) == workspace_mtime.unwrap().into()
+                    {
+                        info!("same mtime \"{}\"", path.display());
                         false
+                    } else {
+                        let workspace_checksum = calculate_sha1(&path)?;
+
+                        if entry.checksum != workspace_checksum {
+                            info!(
+                                "changed \"{}\": index.checksum: {}; fs.checksum: {};",
+                                path.display(),
+                                hex::encode(entry.checksum),
+                                hex::encode(workspace_checksum)
+                            );
+                            true
+                        } else {
+                            info!(
+                                "same \"{}\": checksum: {};",
+                                path.display(),
+                                hex::encode(workspace_checksum)
+                            );
+                            false
+                        }
                     }
                 }
             }
