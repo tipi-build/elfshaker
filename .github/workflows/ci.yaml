@@ -52,6 +52,7 @@ jobs:
           name: elfshaker_win_artifact
           path: ./elfshaker-win.zip
       - name: Upload elfshaker package
+        if: ${{needs.draft-release.outputs.upload_url}}
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
         env:
@@ -82,6 +83,7 @@ jobs:
           name: elfshaker_macos_artifact
           path: ./elfshaker.zip
       - name: Upload elfshaker package
+        if: ${{needs.draft-release.outputs.upload_url}}
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
         env:
@@ -116,6 +118,7 @@ jobs:
           name: elfshaker_linux_artifact
           path: ./elfshaker.zip
       - name: Upload elfshaker package
+        if: ${{needs.draft-release.outputs.upload_url}}
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
         env:
