@@ -98,7 +98,7 @@ fn package_file_see_status() -> Result<(), Box<dyn std::error::Error>> {
     cmd.current_dir(temp.path());
     let clean = cmd.output()?;
     assert!(clean.status.success());
-    assert_eq!(b"[]\n".as_ref(), clean.stdout);
+    assert_eq!("[]\n".to_string(), String::from_utf8_lossy(&clean.stdout));
     //.assert().success();
 
     // 5. modify file

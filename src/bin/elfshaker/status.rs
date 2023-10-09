@@ -9,18 +9,16 @@ use elfshaker::repo::{
 };
 use filetime::FileTime;
 use log::info;
-//use rand::RngCore;
 use std::{
+    collections::HashSet,
     error::Error as StdError,
-    fs::{self, FileType},
+    fs::{self},
     io::{BufReader, Read},
     path::Path,
-    time::SystemTime,
+    sync::mpsc::channel,
 };
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
-//use elfshaker::repo::fs::open_file;
-//use elfshaker::repo::ExtractOptions;
 
 pub(crate) const SUBCOMMAND: &str = "status";
 
@@ -35,9 +33,6 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn StdError>> {
     repo.set_progress_reporter(|msg| create_percentage_print_reporter(msg, 5));
 
     let changed_files: Vec<String> = if let Some(pack_id) = repo.is_pack(snapshot_or_pack)? {
-        //println!("is pack: {:#?}", pack_id);
-        // print_pack_summary(&repo, pack_id)?;
-
         let index = repo.load_index_snapshots(&pack_id)?;
         println!("Pick one of these snapshots inside this pack: {:#?}", index);
         std::process::exit(23)
@@ -89,7 +84,38 @@ fn probe_snapshot_files(
     repo: &Repository,
     snapshot: &SnapshotId,
 ) -> Result<Vec<String>, Box<dyn StdError>> {
-    let mut changed_files = vec![];
+    let pool = threadpool::ThreadPool::new(1);
+    let (workspace_files_sender, workspace_files_receiver) = channel();
+    pool.execute(move || {
+        let mut normalised_paths = HashSet::new(); // Vec::with_capacity(128);
+
+        let walker = walkdir::WalkDir::new(".");
+        for entry in walker {
+            let entry = entry.unwrap();
+
+            if entry.metadata().expect("unable to stat metadata").is_dir() {
+                continue;
+            }
+            let path = entry.path().display().to_string();
+
+            #[cfg(target_family = "windows")]
+            let path = Repository::replace_back_to_slash(&path);
+
+            if path != "."
+                && path.starts_with("./elfshaker_data") == false
+                && path.starts_with("./.git") == false
+            {
+                normalised_paths.insert(path);
+            }
+        }
+
+        workspace_files_sender
+            .send(normalised_paths)
+            .expect("unable to send file list to main thread");
+    });
+
+    let mut changed_files = HashSet::new(); // vec![];
+    let mut unchanged_files = HashSet::new(); // vec![];
 
     let idx = repo.load_index(snapshot.pack())?;
     let handles = idx
@@ -167,13 +193,39 @@ fn probe_snapshot_files(
         };
 
         if changed {
-            changed_files.push(path.display().to_string());
+            changed_files.insert(path.display().to_string());
+        } else {
+            unchanged_files.insert(path.display().to_string());
         }
     }
 
-    changed_files.sort();
+    let workspace_file_paths = workspace_files_receiver
+        .recv()
+        .expect("unable to fetch sorted file list from worker thread");
 
-    Ok(changed_files)
+    Ok(add_untracked_files(
+        changed_files,
+        unchanged_files,
+        workspace_file_paths,
+    ))
+}
+
+fn add_untracked_files(
+    changed_files: HashSet<String>,
+    unchanged_files: HashSet<String>,
+    workspace_file_paths: HashSet<String>,
+) -> Vec<String> {
+    let any_changes = workspace_file_paths
+        .difference(&unchanged_files)
+        .map(|s| s.clone())
+        .collect::<HashSet<_>>();
+
+    let all_changes = changed_files.union(&any_changes);
+
+    let mut list = all_changes.map(|s| s.clone()).collect::<Vec<String>>();
+    list.sort();
+
+    list
 }
 
 fn calculate_sha1(path: &Path) -> std::io::Result<[u8; 20]> {
@@ -195,4 +247,43 @@ fn calculate_sha1(path: &Path) -> std::io::Result<[u8; 20]> {
     hasher.result(&mut checksum);
 
     Ok(checksum)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn vs(list: Vec<&str>) -> Vec<String> {
+        list.into_iter().map(str::to_string).collect()
+    }
+    fn hs(list: Vec<&str>) -> HashSet<String> {
+        list.into_iter().map(str::to_string).collect()
+    }
+
+    #[test]
+    fn add_front() {
+        let e = vs(vec!["a", "b", "c"]);
+        let r = add_untracked_files(hs(vec!["b", "c"]), HashSet::new(), hs(vec!["a", "b", "c"]));
+        assert_eq!(e, r);
+    }
+
+    #[test]
+    fn add_middle() {
+        let e = vs(vec!["a", "b", "c"]);
+        let r = add_untracked_files(hs(vec!["b", "c"]), HashSet::new(), hs(vec!["a", "b", "c"]));
+        assert_eq!(e, r);
+    }
+
+    #[test]
+    fn add_back() {
+        let e = vs(vec!["a", "b", "c"]);
+        let r = add_untracked_files(hs(vec!["b", "c"]), HashSet::new(), hs(vec!["a", "b", "c"]));
+        assert_eq!(e, r);
+    }
+    #[test]
+    fn no_middle() {
+        let e = vs(vec!["a", "c"]);
+        let r = add_untracked_files(hs(vec!["c"]), hs(vec!["b"]), hs(vec!["a", "b", "c"]));
+        assert_eq!(e, r);
+    }
 }
