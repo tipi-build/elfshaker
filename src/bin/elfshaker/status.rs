@@ -87,30 +87,63 @@ fn probe_snapshot_files(
     let pool = threadpool::ThreadPool::new(1);
     let (workspace_files_sender, workspace_files_receiver) = channel();
     pool.execute(move || {
-        let mut normalised_paths = HashSet::new(); // Vec::with_capacity(128);
+        let base_dir = std::env::current_dir().expect("unable to get current working directory");
+        let mut normalised_paths = HashSet::new();
+        let mut symlink_targets_in_tree = HashSet::new();
 
         let walker = walkdir::WalkDir::new(".");
         for entry in walker {
             let entry = entry.unwrap();
+            let metadata = entry.metadata().expect("unable to stat metadata");
 
-            if entry.metadata().expect("unable to stat metadata").is_dir() {
+            if metadata.is_dir() {
                 continue;
             }
-            let path = entry.path().display().to_string();
+            let original_path = entry.path().display().to_string();
 
             #[cfg(target_family = "windows")]
-            let path = Repository::replace_back_to_slash(&path);
+            let path = Repository::replace_back_to_slash(&original_path);
+            #[cfg(not(target_family = "windows"))]
+            let path = original_path.clone();
 
             if path != "."
                 && path.starts_with("./elfshaker_data") == false
                 && path.starts_with("./.git") == false
             {
                 normalised_paths.insert(path);
+
+                if metadata.is_symlink() {
+                    if let Ok(target) = fs::read_link(original_path) {
+                        let target = if target.is_absolute() {
+                            // make relative
+                            if let Ok(target) = target.strip_prefix(&base_dir) {
+                                target
+                            } else {
+                                // out of tree, skipping
+                                continue;
+                            }
+                        } else {
+                            &target
+                        };
+
+                        let path = target.display().to_string();
+                        #[cfg(target_family = "windows")]
+                        let path = Repository::replace_back_to_slash(&*path);
+
+                        //println!("symlink target: {path}");
+                        symlink_targets_in_tree.insert(path);
+                    }
+                }
             }
         }
 
+        let filtered_paths = normalised_paths
+            .difference(&symlink_targets_in_tree)
+            .cloned()
+            .collect();
+
         workspace_files_sender
-            .send(normalised_paths)
+            .send(filtered_paths)
             .expect("unable to send file list to main thread");
     });
 
@@ -217,12 +250,12 @@ fn add_untracked_files(
 ) -> Vec<String> {
     let any_changes = workspace_file_paths
         .difference(&unchanged_files)
-        .map(|s| s.clone())
+        .cloned()
         .collect::<HashSet<_>>();
 
     let all_changes = changed_files.union(&any_changes);
 
-    let mut list = all_changes.map(|s| s.clone()).collect::<Vec<String>>();
+    let mut list = all_changes.cloned().collect::<Vec<String>>();
     list.sort();
 
     list

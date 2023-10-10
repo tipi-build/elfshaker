@@ -129,7 +129,7 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
     let foo_file = temp.child("foo.txt");
     foo_file.touch().unwrap();
     foo_file
-        .write_str("Snapshot 1 contents")
+        .write_str("FOO FOO CONTENT")
         .expect("unable to write initially");
 
     let mut symlink_file = temp.to_path_buf();
@@ -165,13 +165,13 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
     cmd.current_dir(temp.path());
     let clean = cmd.output()?;
     assert!(clean.status.success());
-    assert_eq!(b"[]\n".as_ref(), clean.stdout);
+    assert_eq!("[]", String::from_utf8_lossy(&clean.stdout).trim());
     //.assert().success();
 
     // 5. modify file
     println!("modify foo.txt");
     foo_file
-        .write_str("Snapshot 1 contents appended")
+        .write_str("FOO File Replaced")
         .expect("unable to update foo.txt");
 
     // 6. check status: ["foo.txt"]
@@ -187,7 +187,9 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
 
     // 7. modify symlink
     let bar_file = temp.child("bar.txt");
-    bar_file.touch().unwrap();
+    bar_file
+        .write_str("bar bar")
+        .expect("unable to write bar.txt");
     remove_file(&symlink_file).expect("unable to remove symlink_file");
     symlink(&bar_file, symlink_file).expect("unable to update symlink");
 
@@ -198,7 +200,7 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
     let dirty = cmd.output()?;
     assert!(dirty.status.success());
     assert_eq!(
-        r#"["./foo.txt","./link.txt"]"#.to_string(),
+        r#"["./bar.txt","./foo.txt","./link.txt"]"#.to_string(),
         String::from_utf8_lossy(&dirty.stdout).trim()
     );
 
