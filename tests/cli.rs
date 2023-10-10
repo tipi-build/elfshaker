@@ -272,7 +272,15 @@ fn symlink_to_directory() -> Result<(), Box<dyn std::error::Error>> {
 
     // 5. modify symlink
     println!("removing symlink_dir");
-    remove_dir(&symlink_dir).expect("unable to remove symlink_dir");
+    cfg_if::cfg_if! {
+        if #[cfg(target_family = "unix")] {
+            remove_file(&symlink_dir).expect("unable to remove symlink_dir");
+        } else if #[cfg(target_family = "windows")] {
+            remove_dir(&symlink_dir).expect("unable to remove symlink_dir");
+        } else {
+            compile_error!("symlink not implemented for target_family");
+        }
+    }
     println!("creating updated symlink_dir");
     symlink(&real_dir_2, symlink_dir).expect("unable to update symlink");
 
