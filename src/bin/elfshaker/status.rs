@@ -225,10 +225,15 @@ fn probe_snapshot_files(
             }
         };
 
+        let mut path_string = path.display().to_string();
+        if !path_string.starts_with("./") {
+            path_string = "./".to_string() + &path_string;
+        }
+
         if changed {
-            changed_files.insert(path.display().to_string());
+            changed_files.insert(path_string);
         } else {
-            unchanged_files.insert(path.display().to_string());
+            unchanged_files.insert(path_string);
         }
     }
 
