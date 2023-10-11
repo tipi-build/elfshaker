@@ -7,7 +7,7 @@ on:
       - develop
   pull_request:
 env:
-  version_in_development: v0.0.13
+  version_in_development: v0.0.14
 
 jobs:
   draft-release:
