@@ -86,10 +86,9 @@ fn probe_snapshot_files(
 ) -> Result<Vec<String>, Box<dyn StdError>> {
     let pool = threadpool::ThreadPool::new(1);
     let (workspace_files_sender, workspace_files_receiver) = channel();
+
     pool.execute(move || {
-        let base_dir = std::env::current_dir().expect("unable to get current working directory");
         let mut normalised_paths = HashSet::new();
-        let mut symlink_targets_in_tree = HashSet::new();
 
         let walker = walkdir::WalkDir::new(".");
         for entry in walker {
@@ -102,50 +101,31 @@ fn probe_snapshot_files(
             let original_path = entry.path().display().to_string();
 
             #[cfg(target_family = "windows")]
-            let path = Repository::replace_back_to_slash(&original_path);
+            let mut path = Repository::replace_back_to_slash(&original_path);
             #[cfg(not(target_family = "windows"))]
-            let path = original_path.clone();
+            let mut path = original_path.clone();
 
             if path != "."
                 && path.starts_with("./elfshaker_data") == false
                 && path.starts_with("./.git") == false
             {
-                normalised_paths.insert(path);
-
-                if metadata.is_symlink() {
-                    if let Ok(target) = fs::read_link(original_path) {
-                        let target = if target.is_absolute() {
-                            // make relative
-                            if let Ok(target) = target.strip_prefix(&base_dir) {
-                                target
-                            } else {
-                                // out of tree, skipping
-                                continue;
-                            }
-                        } else {
-                            &target
-                        };
-
-                        let path = target.display().to_string();
-                        #[cfg(target_family = "windows")]
-                        let path = Repository::replace_back_to_slash(&*path);
-
-                        //println!("symlink target: {path}");
-                        symlink_targets_in_tree.insert(path);
-                    }
+                if path.starts_with("./"){
+                   let path_without_dot =  path.split_off(2);
+                   normalised_paths.insert(path_without_dot);
+                }else{
+                    normalised_paths.insert(path);
                 }
+
             }
         }
 
-        let filtered_paths = normalised_paths
-            .difference(&symlink_targets_in_tree)
-            .cloned()
-            .collect();
-
         workspace_files_sender
-            .send(filtered_paths)
+            .send(normalised_paths)
             .expect("unable to send file list to main thread");
+
+
     });
+
 
     let mut changed_files = HashSet::new(); // vec![];
     let mut unchanged_files = HashSet::new(); // vec![];
@@ -235,6 +215,7 @@ fn probe_snapshot_files(
     let workspace_file_paths = workspace_files_receiver
         .recv()
         .expect("unable to fetch sorted file list from worker thread");
+        
 
     Ok(add_untracked_files(
         changed_files,
