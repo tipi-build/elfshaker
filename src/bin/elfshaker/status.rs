@@ -104,12 +104,14 @@ fn probe_snapshot_files(
             #[cfg(target_family = "windows")]
             let path = Repository::replace_back_to_slash(&original_path);
             #[cfg(not(target_family = "windows"))]
-            let mut path = original_path.clone();
+            let path = original_path.clone();
 
             if path != "."
                 && path.starts_with("./elfshaker_data") == false
                 && path.starts_with("./.git") == false
             {
+                normalised_paths.insert(path);
+
                 if metadata.is_symlink() {
                     if let Ok(target) = fs::read_link(original_path) {
                         let target = if target.is_absolute() {
@@ -222,15 +224,11 @@ fn probe_snapshot_files(
                 }
             }
         };
-        let mut path_string = path.display().to_string();
-        if !path_string.starts_with("./") {
-            path_string += &("./".to_string() + &path_string);
-        }
 
         if changed {
-            changed_files.insert(path_string);
+            changed_files.insert(path.display().to_string());
         } else {
-            unchanged_files.insert(path_string);
+            unchanged_files.insert(path.display().to_string());
         }
     }
 
