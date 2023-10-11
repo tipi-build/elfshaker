@@ -115,17 +115,13 @@ fn probe_snapshot_files(
                 } else {
                     normalised_paths.insert(path);
                 }
-
             }
         }
 
         workspace_files_sender
             .send(normalised_paths)
             .expect("unable to send file list to main thread");
-
-
     });
-
 
     let mut changed_files = HashSet::new(); // vec![];
     let mut unchanged_files = HashSet::new(); // vec![];
@@ -215,7 +211,6 @@ fn probe_snapshot_files(
     let workspace_file_paths = workspace_files_receiver
         .recv()
         .expect("unable to fetch sorted file list from worker thread");
-        
 
     Ok(add_untracked_files(
         changed_files,
