@@ -109,10 +109,10 @@ fn probe_snapshot_files(
                 && path.starts_with("./elfshaker_data") == false
                 && path.starts_with("./.git") == false
             {
-                if path.starts_with("./"){
-                   let path_without_dot =  path.split_off(2);
-                   normalised_paths.insert(path_without_dot);
-                }else{
+                if path.starts_with("./") {
+                    let path_without_dot = path.split_off(2);
+                    normalised_paths.insert(path_without_dot);
+                } else {
                     normalised_paths.insert(path);
                 }
 
