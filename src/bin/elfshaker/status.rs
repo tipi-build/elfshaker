@@ -54,7 +54,8 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn StdError>> {
             for file in changed_files {
                 println!("        {file}");
             }
-            println!("");
+            // Platform independent newline
+            println!();
             // This error message is to harsh
             // return Err(Box::new(Error::DirtyWorkDir));
         }
@@ -171,55 +172,53 @@ fn probe_snapshot_files(
                     path.display()
                 );
                 true
+            } else if workspace_is_symlink {
+                let workspace_target = fs::read_link(path)?;
+                let changed = entry.file_metadata.symlink_target != workspace_target;
+                if changed {
+                    info!(
+                        "changed \"{}\": index.symlink: {}; fs.symlink: {};",
+                        path.display(),
+                        entry.file_metadata.symlink_target.display(),
+                        workspace_target.display()
+                    );
+                    true
+                } else {
+                    info!(
+                        "same \"{}\": symlink_target: {};",
+                        path.display(),
+                        workspace_target.display()
+                    );
+                    false
+                }
             } else {
-                if workspace_is_symlink {
-                    let workspace_target = fs::read_link(path)?;
-                    let changed = entry.file_metadata.symlink_target != workspace_target;
-                    if changed {
+                let workspace_mtime = get_last_modified(path.metadata()?);
+                if workspace_mtime.is_some()
+                    && FileTime::from_unix_time(
+                        entry.file_metadata.last_modified,
+                        entry.file_metadata.last_modified_nanos,
+                    ) == workspace_mtime.unwrap().into()
+                {
+                    info!("same mtime \"{}\"", path.display());
+                    false
+                } else {
+                    let workspace_checksum = calculate_sha1(path)?;
+
+                    if entry.checksum != workspace_checksum {
                         info!(
-                            "changed \"{}\": index.symlink: {}; fs.symlink: {};",
+                            "changed \"{}\": index.checksum: {}; fs.checksum: {};",
                             path.display(),
-                            entry.file_metadata.symlink_target.display(),
-                            workspace_target.display()
+                            hex::encode(entry.checksum),
+                            hex::encode(workspace_checksum)
                         );
                         true
                     } else {
                         info!(
-                            "same \"{}\": symlink_target: {};",
+                            "same \"{}\": checksum: {};",
                             path.display(),
-                            workspace_target.display()
+                            hex::encode(workspace_checksum)
                         );
                         false
-                    }
-                } else {
-                    let workspace_mtime = get_last_modified(path.metadata()?);
-                    if workspace_mtime.is_some()
-                        && FileTime::from_unix_time(
-                            entry.file_metadata.last_modified,
-                            entry.file_metadata.last_modified_nanos,
-                        ) == workspace_mtime.unwrap().into()
-                    {
-                        info!("same mtime \"{}\"", path.display());
-                        false
-                    } else {
-                        let workspace_checksum = calculate_sha1(&path)?;
-
-                        if entry.checksum != workspace_checksum {
-                            info!(
-                                "changed \"{}\": index.checksum: {}; fs.checksum: {};",
-                                path.display(),
-                                hex::encode(entry.checksum),
-                                hex::encode(workspace_checksum)
-                            );
-                            true
-                        } else {
-                            info!(
-                                "same \"{}\": checksum: {};",
-                                path.display(),
-                                hex::encode(workspace_checksum)
-                            );
-                            false
-                        }
                     }
                 }
             }
