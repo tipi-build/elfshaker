@@ -1,10 +1,7 @@
 use assert_cmd::prelude::*;
 use assert_fs::prelude::*;
 use predicates::prelude::*;
-use std::{
-    fs::{remove_dir, remove_file},
-    process::Command,
-};
+use std::{fs::remove_file, process::Command};
 
 // main use case: loosen and repackage in order to add a snapshot to an existing pack. Should be
 // faster than unpacking each single snapshot.
@@ -276,7 +273,7 @@ fn symlink_to_directory() -> Result<(), Box<dyn std::error::Error>> {
         if #[cfg(target_family = "unix")] {
             remove_file(&symlink_dir).expect("unable to remove symlink_dir");
         } else if #[cfg(target_family = "windows")] {
-            remove_dir(&symlink_dir).expect("unable to remove symlink_dir");
+            std::fs::remove_dir(&symlink_dir).expect("unable to remove symlink_dir");
         } else {
             compile_error!("symlink not implemented for target_family");
         }
