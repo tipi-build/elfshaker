@@ -226,8 +226,8 @@ fn probe_snapshot_files(
         };
 
         let mut path_string = path.display().to_string();
-        if !path_string.starts_with("./") {
-            path_string = "./".to_string() + &path_string;
+        if path_string.starts_with("./") == false {
+            path_string = format!("./{}", path_string);
         }
 
         if changed {
