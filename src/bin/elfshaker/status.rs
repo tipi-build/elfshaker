@@ -109,7 +109,6 @@ fn probe_snapshot_files(
 
             if path != "."
                 && path.starts_with("./elfshaker_data") == false
-                && path.starts_with("./.git") == false
             {
                 normalised_paths.insert(path);
 
@@ -164,15 +163,15 @@ fn probe_snapshot_files(
             info!("not in workspace {}", path.display());
             true
         } else {
-            let workspace_is_symlink = path.is_symlink();
+            let file_in_workspace_is_symlink = path.is_symlink();
 
-            if entry.file_metadata.is_symlink_file != workspace_is_symlink {
+            if entry.file_metadata.is_symlink_file != file_in_workspace_is_symlink {
                 info!(
                     "symlink status differs from recording for {}",
                     path.display()
                 );
                 true
-            } else if workspace_is_symlink {
+            } else if file_in_workspace_is_symlink {
                 let workspace_target = fs::read_link(path)?;
                 let changed = entry.file_metadata.symlink_target != workspace_target;
                 if changed {
