@@ -107,9 +107,7 @@ fn probe_snapshot_files(
             #[cfg(not(target_family = "windows"))]
             let path = original_path.clone();
 
-            if path != "."
-                && path.starts_with("./elfshaker_data") == false
-            {
+            if path != "." && !path.starts_with("./elfshaker_data") {
                 normalised_paths.insert(path);
 
                 if metadata.is_symlink() {
