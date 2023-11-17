@@ -1,22 +1,31 @@
 //! SPDX-License-Identifier: Apache-2.0
 //! Copyright (C) 2021 Arm Limited or its affiliates and Contributors. All rights reserved.
 
-use std::error::Error;
-
 use clap::{App, Arg, ArgMatches};
 use log::{info, warn};
+use std::error::Error;
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
 use elfshaker::packidx::PackError;
 use elfshaker::repo::{Error as RepoError, ExtractOptions};
+use elfshaker::utils::read_files_list;
+use elfshaker::utils::return_empty_vec;
 
 pub(crate) const SUBCOMMAND: &str = "extract";
 
 pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let snapshot = matches.value_of("snapshot").unwrap();
+    let files_from: Option<&str> = matches.value_of("files-from");
     let is_reset = matches.is_present("reset");
     let is_verify = matches.is_present("verify");
     let is_force = matches.is_present("force");
+
+    let files_from_and_delim: Option<(&str, u8)> = files_from.map(|file: &str| (file, b'\n'));
+
+    let files_pathbuf: Vec<_> = match files_from_and_delim {
+        Some(("-", delim)) => read_files_list(std::io::stdin(), delim)?,
+        _ => return_empty_vec(),
+    };
 
     // Parse --threads
     let threads: u32 = match matches.value_of("threads").unwrap().parse()? {
@@ -61,7 +70,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     opts.set_num_workers(threads);
 
     repo.set_progress_reporter(|msg| create_percentage_print_reporter(msg, 5));
-    let result = repo.extract_snapshot(new_head.clone(), opts)?;
+    let result = repo.extract_snapshot(new_head.clone(), opts, files_pathbuf)?;
 
     eprintln!("A \t{} files", result.added_file_count);
     eprintln!("D \t{} files", result.removed_file_count);
@@ -99,4 +108,10 @@ pub(crate) fn get_app() -> App<'static, 'static> {
                 .help("Use the specified number of worker threads for decompression. \
                       The number of threads used is proportional to the memory needed for decompression.")
                 .default_value("0"))
+        .arg(Arg::with_name("files-from")
+                .takes_value(true)
+                .long("files-from")
+                .value_name("file")
+                .help("Reads the list of files to include in the snapshot from the specified file. '-' is taken to mean stdin."),
+                )
 }

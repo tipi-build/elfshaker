@@ -3,11 +3,12 @@
 
 use clap::{App, Arg, ArgMatches};
 use log::error;
-use std::{error::Error, ffi::OsStr, fs, io, path::PathBuf};
+use std::{error::Error, fs, path::PathBuf};
 use walkdir::WalkDir;
 
 use super::utils::open_repo_from_cwd;
 use elfshaker::repo::{PackId, Repository, SnapshotId};
+use elfshaker::utils::read_files_list;
 
 pub(crate) const SUBCOMMAND: &str = "store";
 
@@ -70,31 +71,6 @@ pub(crate) fn get_app() -> App<'static, 'static> {
                 .value_name("file")
                 .help("Reads the NUL-separated (ASCII \\0) list of files to include in the snapshot from the specified file. '-' is taken to mean stdin."),
         )
-}
-
-#[cfg(unix)]
-fn to_os_str(buf: &[u8]) -> Result<&OsStr, std::str::Utf8Error> {
-    Ok(std::os::unix::ffi::OsStrExt::from_bytes(buf))
-}
-
-#[cfg(not(unix))]
-fn to_os_str(buf: &[u8]) -> Result<&OsStr, std::str::Utf8Error> {
-    // On Windows (and everything else) we will expect well-formed UTF-8 and pray
-    Ok(OsStr::new(std::str::from_utf8(buf)?))
-}
-
-fn read_files_list(mut reader: impl io::Read, separator: u8) -> io::Result<Vec<PathBuf>> {
-    let mut buf = vec![];
-    reader.read_to_end(&mut buf)?;
-
-    buf.split(|c| *c == separator)
-        .filter(|s| !s.is_empty())
-        .map(|s| {
-            to_os_str(s)
-                .map(PathBuf::from)
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
-        })
-        .collect()
 }
 
 fn find_files() -> Vec<PathBuf> {
