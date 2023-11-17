@@ -43,7 +43,7 @@ jobs:
       - name: install and build 
         run: |
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
-          ./rustup-init.exe -q -y
+          ./rustup-init.exe -q -y --default-toolchain 1.73.0
           cargo  build --release --bin elfshaker
           cargo test
           Compress-Archive -Path .\target\release\elfshaker.exe -DestinationPath ./elfshaker-win.zip
@@ -72,7 +72,7 @@ jobs:
         run: |
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
-          ./sh.rustup.sh -q -y
+          ./sh.rustup.sh -q -y --default-toolchain 1.73.0
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
           cargo test
@@ -105,7 +105,7 @@ jobs:
           sudo apt update && sudo apt install zip -y
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
-          ./sh.rustup.sh -q -y --no-modify-path
+          ./sh.rustup.sh -q -y --no-modify-path --default-toolchain 1.73.0
           export PATH="$HOME/.cargo/bin:$PATH"
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
