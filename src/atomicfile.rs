@@ -223,7 +223,7 @@ fn create_temp_path<P: AsRef<Path>>(temp_dir: P) -> PathBuf {
     });
     temp_dir.as_ref().join(&temp_filename)
 }
-/* 
+
 #[cfg(test)]
 mod tests {
     use std::error::Error;
@@ -271,4 +271,3 @@ mod tests {
         Ok(())
     }
 }
-*/
