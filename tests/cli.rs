@@ -200,7 +200,7 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
     let dirty = cmd.output()?;
     assert!(dirty.status.success());
     assert_eq!(
-        r#"["./bar.txt","./foo.txt","./link.txt"]"#.to_string(),
+        r#"["bar.txt","foo.txt","link.txt"]"#.to_string(),
         String::from_utf8_lossy(&dirty.stdout).trim()
     );
 
@@ -290,7 +290,7 @@ fn symlink_to_directory() -> Result<(), Box<dyn std::error::Error>> {
     assert!(dirty.status.success());
     // old some.txt is stored by elfshaker twice
     assert_eq!(
-        r#"["./link_dir","./link_dir/some.txt"]"#.to_string(),
+        r#"["link_dir","link_dir/some.txt"]"#.to_string(),
         String::from_utf8_lossy(&dirty.stdout).trim()
     );
 
