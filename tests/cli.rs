@@ -114,7 +114,7 @@ fn package_file_see_status() -> Result<(), Box<dyn std::error::Error>> {
     let dirty = cmd.output()?;
     assert!(dirty.status.success());
     assert_eq!(
-        "[\"./foo.txt\"]\n".to_string(),
+        "[\"foo.txt\"]\n".to_string(),
         String::from_utf8_lossy(&dirty.stdout)
     );
 
@@ -181,7 +181,7 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
     let dirty = cmd.output()?;
     assert!(dirty.status.success());
     assert_eq!(
-        "[\"./foo.txt\"]\n".to_string(),
+        "[\"foo.txt\"]\n".to_string(),
         String::from_utf8_lossy(&dirty.stdout)
     );
 
@@ -263,7 +263,7 @@ fn symlink_to_directory() -> Result<(), Box<dyn std::error::Error>> {
     let clean = cmd.output()?;
     assert!(clean.status.success());
     assert_eq!(
-        r#"["./link_dir"]"#,
+        r#"["link_dir"]"#,
         String::from_utf8_lossy(&clean.stdout).trim()
     );
 
