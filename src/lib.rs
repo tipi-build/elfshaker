@@ -8,3 +8,4 @@ pub mod log;
 pub mod packidx;
 pub mod progress;
 pub mod repo;
+pub mod utils;

@@ -42,8 +42,9 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn StdError>> {
     };
 
     if json_output {
-        let json = serde_json::to_string(&changed_files)
+        let mut json = serde_json::to_string(&changed_files)
             .expect("internal structure will always serialize");
+        json = json.replace("./", "");
         println!("{json}");
     } else {
         println!("Compared to {snapshot_or_pack}");

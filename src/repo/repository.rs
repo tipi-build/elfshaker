@@ -350,6 +350,7 @@ impl Repository {
         &mut self,
         snapshot_id: SnapshotId,
         opts: ExtractOptions,
+        files_pathbuf: Vec<PathBuf>,
     ) -> Result<ExtractResult, Error> {
         let (head, head_time) = self.read_head()?;
 
@@ -366,7 +367,7 @@ impl Repository {
             .expect("failed to resolve snapshot"); // TODO: Temporary.
         let entries = source_index.entries_from_handles(entries.iter())?;
 
-        let (new_entries, old_entries) = if opts.reset || head.is_none() {
+        let (mut new_entries, mut old_entries) = if opts.reset || head.is_none() {
             // Extract all, remove nothing
             (entries, vec![])
         } else if let Some(head) = head {
@@ -400,6 +401,21 @@ impl Repository {
         } else {
             unreachable!();
         };
+
+        for file in files_pathbuf.into_iter() {
+            if let Some(index) = new_entries
+                .iter()
+                .position(|i: &FileEntry| i.path == file.clone().into_os_string())
+            {
+                new_entries.swap_remove(index);
+            }
+            if let Some(index_old) = old_entries
+                .iter()
+                .position(|i: &FileEntry| i.path == file.clone().into_os_string())
+            {
+                old_entries.swap_remove(index_old);
+            }
+        }
 
         // There is no point in deleting files which will be overwritten by the extract, so
         // we identify and ignore them beforehand.

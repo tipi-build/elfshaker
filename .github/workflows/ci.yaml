@@ -7,7 +7,7 @@ on:
       - develop
   pull_request:
 env:
-  version_in_development: v0.0.16
+  version_in_development: v0.0.18
 
 jobs:
   draft-release:
@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Create Release
         id: draft_release
-        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/sha1-streaming'
+        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/extract_only_some_path'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -43,7 +43,7 @@ jobs:
       - name: install and build 
         run: |
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
-          ./rustup-init.exe -q -y
+          ./rustup-init.exe -q -y --default-toolchain 1.73.0
           cargo  build --release --bin elfshaker
           cargo test --verbose
           Compress-Archive -Path .\target\release\elfshaker.exe -DestinationPath ./elfshaker-win.zip
@@ -73,7 +73,7 @@ jobs:
         run: |
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
-          ./sh.rustup.sh -q -y
+          ./sh.rustup.sh -q -y --default-toolchain 1.73.0
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
           cargo test --verbose
@@ -107,7 +107,7 @@ jobs:
           sudo apt update && sudo apt install zip -y
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
-          ./sh.rustup.sh -q -y --no-modify-path
+          ./sh.rustup.sh -q -y --no-modify-path --default-toolchain 1.73.0
           export PATH="$HOME/.cargo/bin:$PATH"
           cargo  build --release --bin elfshaker
           chmod +x ./target/release/elfshaker
