@@ -22,7 +22,7 @@ pub mod update;
 pub mod utils;
 
 
-#[cxx::bridge(namespace = "foo")]
+#[cxx::bridge(namespace = "lib")]
 mod bridge {
     extern "Rust" {
         fn print(slice: &[u64]);

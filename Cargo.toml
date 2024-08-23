@@ -13,7 +13,7 @@ path = "src/bin/main.rs"
 
 [lib]
 name = "elfshaker"
-crate-type=["lib"]
+crate-type=["lib", "staticlib"]
 
 [dependencies]
 cxx = "1.0"

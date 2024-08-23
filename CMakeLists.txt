@@ -12,7 +12,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Corrosion)
 
 # Import targets defined in a package or workspace manifest `Cargo.toml` file
-corrosion_import_crate(MANIFEST_PATH Cargo.toml)
+corrosion_import_crate(MANIFEST_PATH Cargo.toml IMPORTED_CRATES BANANA)
+message("imported crates : ${BANANA}")
+corrosion_add_cxxbridge(elfshaker-cxxbridge CRATE elfshaker FILES lib.rs)
 
 add_executable(your_cpp_bin main.cpp)
-target_link_libraries(your_cpp_bin PUBLIC elfshaker)
+target_link_libraries(your_cpp_bin PUBLIC elfshaker-cxxbridge)
+if (CMAKE_SYSTEM_NAME MATCHES Darwin)
+    target_link_libraries(your_cpp_bin PUBLIC "-framework Foundation")
+endif()
