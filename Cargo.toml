@@ -7,8 +7,13 @@ version = "0.1.0"
 authors = ["Veselin Karaganev <veselin.karaganev@arm.com>", "Peter Waller <peter.waller@arm.com>"]
 edition = "2018"
 
+[[bin]]
+name = "elfshaker_executable"
+path = "src/bin/main.rs"
+
 [lib]
-crate-type=["staticlib"]
+name = "elfshaker"
+crate-type=["lib"]
 
 [dependencies]
 cxx = "1.0"
