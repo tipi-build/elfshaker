@@ -3,7 +3,7 @@
 
 use clap::{App, Arg, ArgMatches};
 use crypto::{digest::Digest, sha1::Sha1};
-use elfshaker::repo::{
+use crate::repo::{
     fs::{get_last_modified, open_file},
     Repository, SnapshotId,
 };
@@ -20,9 +20,9 @@ use std::{
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
 
-pub(crate) const SUBCOMMAND: &str = "status";
+pub const SUBCOMMAND: &str = "status";
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn StdError>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn StdError>> {
     let json_output = matches.is_present("json_output");
     let snapshot_or_pack = matches
         .value_of("snapshot_or_pack")
@@ -64,7 +64,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     App::new(SUBCOMMAND)
         .about("Displays the difference between the current directory and a stored snapshot.")
         .arg(

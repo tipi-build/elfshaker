@@ -10,11 +10,11 @@ use std::{
 };
 
 use super::utils::create_percentage_print_reporter;
-use elfshaker::repo::Repository;
+use crate::repo::Repository;
 
-pub(crate) const SUBCOMMAND: &str = "clone";
+pub const SUBCOMMAND: &str = "clone";
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let origin_url = matches.value_of("repository").unwrap();
     let directory = matches.value_of("directory").unwrap();
 
@@ -52,7 +52,7 @@ fn do_clone(directory: &Path, origin_url: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     App::new(SUBCOMMAND)
         .about("Clones a remote repository into a new directory")
         .arg(

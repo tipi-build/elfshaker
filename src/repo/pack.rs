@@ -405,7 +405,7 @@ impl Pack {
     /// * `verify` - Enable/disable checksum verification.
     #[allow(unused_mut)]
     #[allow(clippy::needless_collect)]
-    pub(crate) fn extract_entries<P>(
+    pub fn extract_entries<P>(
         mut self,
         entries: &[FileEntry],
         output_dir: P,

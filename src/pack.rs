@@ -6,12 +6,12 @@ use log::info;
 use std::{error::Error, ops::ControlFlow, str::FromStr};
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
-use elfshaker::{
+use crate::{
     packidx::PackIndex,
     repo::{PackId, PackOptions, SnapshotId},
 };
 
-pub(crate) const SUBCOMMAND: &str = "pack";
+pub const SUBCOMMAND: &str = "pack";
 
 /// Window log is currently not configurable; We use a hopefully reasonable
 /// value of 28 == 256MiB window log. A configurable window log will require the
@@ -19,7 +19,7 @@ pub(crate) const SUBCOMMAND: &str = "pack";
 /// operations.
 const DEFAULT_COMPRESSION_WINDOW_LOG: u32 = 28;
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     // Parse pack name
     let pack = matches.value_of("pack").unwrap();
     let pack = PackId::from_str(pack)?;
@@ -133,7 +133,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     let compression_level_range = zstd::compression_level_range();
 
     App::new(SUBCOMMAND)

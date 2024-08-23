@@ -7,12 +7,12 @@ use clap::{App, Arg, ArgMatches};
 use log::{info, warn};
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
-use elfshaker::packidx::PackError;
-use elfshaker::repo::{Error as RepoError, ExtractOptions};
+use crate::packidx::PackError;
+use crate::repo::{Error as RepoError, ExtractOptions};
 
-pub(crate) const SUBCOMMAND: &str = "extract";
+pub const SUBCOMMAND: &str = "extract";
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let snapshot = matches.value_of("snapshot").unwrap();
     let is_reset = matches.is_present("reset");
     let is_verify = matches.is_present("verify");
@@ -71,7 +71,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     App::new(SUBCOMMAND)
         .about("Can be used to extract a snapshot.")
         .arg(

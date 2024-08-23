@@ -7,11 +7,11 @@ use std::{error::Error, ffi::OsStr, fs, io, path::PathBuf};
 use walkdir::WalkDir;
 
 use super::utils::open_repo_from_cwd;
-use elfshaker::repo::{PackId, Repository, SnapshotId};
+use crate::repo::{PackId, Repository, SnapshotId};
 
-pub(crate) const SUBCOMMAND: &str = "store";
+pub const SUBCOMMAND: &str = "store";
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let files_from = matches.value_of("files-from");
     let files0_from = matches.value_of("files0-from");
     let snapshot = matches.value_of("snapshot").unwrap();
@@ -43,7 +43,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     App::new(SUBCOMMAND)
         .about(
             "Stores the current state of the repository in a snapshot. The snapshots \

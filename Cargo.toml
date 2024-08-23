@@ -7,11 +7,11 @@ version = "0.1.0"
 authors = ["Veselin Karaganev <veselin.karaganev@arm.com>", "Peter Waller <peter.waller@arm.com>"]
 edition = "2018"
 
-[[bin]]
-name = "elfshaker"
-path = "src/bin/elfshaker/main.rs"
+[lib]
+crate-type=["staticlib"]
 
 [dependencies]
+cxx = "1.0"
 zstd = { version = "0.9.2", features = ["zstdmt"] }
 crossbeam-utils = "0.8"
 walkdir = "2.3.2"

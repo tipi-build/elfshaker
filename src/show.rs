@@ -6,12 +6,12 @@ use rand::RngCore;
 use std::{collections::HashMap, error::Error};
 
 use super::utils::open_repo_from_cwd;
-use elfshaker::repo::fs::open_file;
-use elfshaker::repo::ExtractOptions;
+use crate::repo::fs::open_file;
+use crate::repo::ExtractOptions;
 
-pub(crate) const SUBCOMMAND: &str = "show";
+pub const SUBCOMMAND: &str = "show";
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let snapshot = matches.value_of("snapshot").unwrap();
     let paths: Vec<_> = matches.values_of_os("path").unwrap().collect();
 
@@ -69,7 +69,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     App::new(SUBCOMMAND)
         .about("Shows the contents of the files in the snapshot.")
         .arg(
