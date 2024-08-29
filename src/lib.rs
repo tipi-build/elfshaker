@@ -26,6 +26,7 @@ use cxx::{CxxString, CxxVector};
 use repo::ExtractResult;
 use std::error::Error;
 use std::path::PathBuf;
+use std::string::String;
 
 //use std::fmt::{self, Display};
 //
@@ -69,7 +70,7 @@ mod bridge {
      * @param snapshot 
      * @return whether the extraction was successful
      */
-    fn extract(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, pack: &CxxString, snapshot: &CxxString, opts: ExtractOptions) -> Result<ExtractResult>;
+    fn extract(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, snapshot: &CxxString, opts: ExtractOptions) -> Result<ExtractResult>;
 
     /**
      * @brief Create a snapshot in the specified repo given a list of files (paths must be relative to worktree!)
@@ -81,6 +82,25 @@ mod bridge {
      * @return false 
      */
     fn store(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, files_to_snapshot: &CxxVector<CxxString>, snapshot_name: &CxxString) -> Result<()>;
+
+  /**
+   * @brief Selectively pack a number of index files into a elfshaker pack
+   * 
+   * @param elfshaker_repo_dir The parent folder of elfshaker_data/
+   * @param pack_name the resulting pack name
+   * @param index_files the list of files to include if empty will include all loose
+   * @return true on success
+   * @return false otherwise
+   */
+    fn pack(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, pack_name: &CxxString, threads:u32, frames:u32) -> Result<()>;
+
+   /**
+    * \brief This computes the difference between stored files and files on disk for build pack snapshot
+    * \param elfshaker_repo_dir
+    * \param pack_snapshot_to_check_status_against
+    */
+    fn status(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, pack_snapshot_to_check_status_against: &CxxString) ->
+Result<Vec<String>>;
   }  
 } 
 
@@ -105,7 +125,7 @@ fn init_elfshaker_store(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString
   //return store(elfshaker_repo_dir, {}, "init");
 }
 
-fn extract(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, pack: &CxxString, snapshot: &CxxString, opts: bridge::ExtractOptions) -> Result<ExtractResult, Box<dyn Error>> {
+fn extract(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, snapshot: &CxxString, opts: bridge::ExtractOptions) -> Result<ExtractResult, Box<dyn Error>> {
   println!("Options extracted {} {} {} {}", opts.verify(), opts.force(), opts.reset, opts.num_workers);
   let result = extract::do_extract(std::path::PathBuf::from(elfshaker_repo_dir.to_string()),std::path::PathBuf::from(worktree_dir.to_string()), &snapshot.to_string(), opts)?;
   Ok(result)
@@ -126,4 +146,18 @@ fn store(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, files_to_snap
     &snapshot_name.to_str()?, &files_to_snapshot_paths);
   
   result
+}
+
+const PACK_COMPRESSION_LEVEL:i32 = 10;
+
+fn pack(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, pack_name: &CxxString, threads:u32, frames:u32) -> Result<(), Box<dyn Error>> {
+
+  pack::do_pack(std::path::PathBuf::from(elfshaker_repo_dir.to_string()),std::path::PathBuf::from(worktree_dir.to_string()), &pack_name.to_str()?, PACK_COMPRESSION_LEVEL, threads, frames, None)
+
+}
+
+fn status(elfshaker_repo_dir: &CxxString, worktree_dir: &CxxString, pack_snapshot_to_check_status_against: &CxxString) ->
+Result<Vec<String>, Box<dyn Error>> {
+  status::do_status(std::path::PathBuf::from(elfshaker_repo_dir.to_string()),std::path::PathBuf::from(worktree_dir.to_string()), &pack_snapshot_to_check_status_against.to_str()?)
+
 }

@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
   bridge::store( elfshaker_data_dir, worktree_path, { std::string{argv[2]} }, "banana"); 
 
   {
-    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "loose", "init", bridge::ExtractOptions{
+    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "init", bridge::ExtractOptions{
       .verify = false,
       .force = true,
       .reset = false,
@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
   }
 std::cin >> i;
   {
-    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "loose", "banana", bridge::ExtractOptions{
+    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "banana", bridge::ExtractOptions{
       .verify = false,
       .force = true,
       .reset = false,
@@ -52,9 +52,9 @@ std::cin >> i;
     << std::endl;
   }
 
-std::cin >> i;
+  std::cin >> i;
     {
-    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "loose", "init", bridge::ExtractOptions{
+    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "init", bridge::ExtractOptions{
       .verify = true,
       .force = true,
       .reset = false,
@@ -66,6 +66,34 @@ std::cin >> i;
     std::cout << "M: " <<  extracted.modified_file_count 
     << std::endl;
   }
+std::cin >> i;
+  {
+    bridge::pack(elfshaker_data_dir, worktree_path, "mypack", 12, 0);
+  }
 
+std::cin >> i;
+  {
+    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "banana", bridge::ExtractOptions{
+      .verify = false,
+      .force = true,
+      .reset = false,
+      .num_workers = 32
+    });
+
+    std::cout << "A: " <<  extracted.added_file_count << "\n";
+    std::cout << "D: " <<  extracted.removed_file_count << "\n";
+    std::cout << "M: " <<  extracted.modified_file_count 
+    << std::endl;
+  }
+
+
+std::cin >> i;
+  {
+    auto status_list = bridge::status(elfshaker_data_dir, worktree_path, "banana");
+    std::cout << "Status List : " << std::endl;
+    for (auto st : status_list) {
+      std::cout << st << std::endl;
+    }
+  }
   return 0;
 }

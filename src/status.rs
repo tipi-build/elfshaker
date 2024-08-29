@@ -7,22 +7,43 @@ use crate::repo::{
     fs::{get_last_modified, open_file},
     Repository, SnapshotId,
 };
+use crate::packidx::PackError;
 use filetime::FileTime;
 use log::info;
 use std::{
     collections::HashSet,
-    error::Error as StdError,
+    error::Error,
     fs::{self},
     io::{BufReader, Read},
     path::Path,
+    path::PathBuf,
     sync::mpsc::channel,
 };
 
-use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
+use crate::repo::{Error as RepoError};
+
+use super::utils::{create_percentage_print_reporter, open_repo_from_cwd, open_repo_with_separate_worktree_from};
 
 pub const SUBCOMMAND: &str = "status";
 
-pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn StdError>> {
+pub fn do_status(elfshaker_repo_dir: PathBuf, worktree_dir: PathBuf, snapshot_or_pack:&str) -> Result<Vec<String>, Box<dyn Error>> {
+  let mut repo = open_repo_with_separate_worktree_from(&elfshaker_repo_dir, &worktree_dir)?;
+
+  repo.set_progress_reporter(|msg| create_percentage_print_reporter(msg, 5));
+
+  if let Some(pack_id) = repo.is_pack(snapshot_or_pack)?{
+    let index = repo.load_index_snapshots(&pack_id)?;
+    println!("Pick one of these snapshots inside this pack: {:#?}", index);
+    return Err(RepoError::PackError(PackError::SnapshotNotFound(snapshot_or_pack.to_string())))?;
+  }
+
+  let snapshot = repo.find_snapshot(snapshot_or_pack)?;
+  let changed_files: Vec<String> = probe_snapshot_files(&repo, &snapshot)?;
+
+  Ok(changed_files)
+}
+
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let json_output = matches.is_present("json_output");
     let snapshot_or_pack = matches
         .value_of("snapshot_or_pack")
@@ -84,15 +105,17 @@ pub fn get_app() -> App<'static, 'static> {
 fn probe_snapshot_files(
     repo: &Repository,
     snapshot: &SnapshotId,
-) -> Result<Vec<String>, Box<dyn StdError>> {
+) -> Result<Vec<String>, Box<dyn Error>> {
     let pool = threadpool::ThreadPool::new(1);
     let (workspace_files_sender, workspace_files_receiver) = channel();
+    let repo_worktree = repo.path().to_owned();
     pool.execute(move || {
-        let base_dir = std::env::current_dir().expect("unable to get current working directory");
+        let base_dir = String::from(repo_worktree.to_str().unwrap()) + "/";
         let mut normalised_paths = HashSet::new();
         let mut symlink_targets_in_tree = HashSet::new();
 
-        let walker = walkdir::WalkDir::new(".");
+        println!("Walking dir from {}", base_dir);
+        let walker = walkdir::WalkDir::new(&base_dir);
         for entry in walker {
             let entry = entry.unwrap();
             let metadata = entry.metadata().expect("unable to stat metadata");
@@ -108,7 +131,8 @@ fn probe_snapshot_files(
             let path = original_path.clone();
 
             if path != "." && !path.starts_with("./elfshaker_data") {
-                normalised_paths.insert(path);
+                normalised_paths.insert(path.strip_prefix(base_dir.as_str()).unwrap().to_string());
+                
 
                 if metadata.is_symlink() {
                     if let Ok(target) = fs::read_link(original_path) {
@@ -129,7 +153,7 @@ fn probe_snapshot_files(
                         let path = Repository::replace_back_to_slash(&*path);
 
                         //println!("symlink target: {path}");
-                        symlink_targets_in_tree.insert(path);
+                        symlink_targets_in_tree.insert(path.strip_prefix(base_dir.as_str()).unwrap().to_string());
                     }
                 }
             }
@@ -154,7 +178,8 @@ fn probe_snapshot_files(
         .expect("failed to resolve snapshot"); // TODO: Temporary.
 
     for entry in idx.entries_from_handles(handles.iter())? {
-        let path = Path::new(&entry.path);
+        let pathbuf= repo.path().join(&entry.path);
+        let path = pathbuf.as_path();
 
         let changed = if path.exists() == false {
             // missing in workspace
@@ -199,7 +224,7 @@ fn probe_snapshot_files(
                     info!("same mtime \"{}\"", path.display());
                     false
                 } else {
-                    let workspace_checksum = calculate_sha1(path)?;
+                    let workspace_checksum = calculate_sha1(&path)?;
 
                     if entry.checksum != workspace_checksum {
                         info!(
@@ -221,10 +246,11 @@ fn probe_snapshot_files(
             }
         };
 
-        let mut path_string = path.display().to_string();
-        if path_string.starts_with("./") == false {
-            path_string = format!("./{}", path_string);
-        }
+        let mut path_string = path.strip_prefix(repo.path())?.display().to_string();
+        println!("CUrrent path : {} ", path_string);
+        //if path_string.starts_with("./") == false {
+        //    path_string = format!("./{}", path_string);
+        //}
 
         if changed {
             changed_files.insert(path_string);
@@ -233,10 +259,14 @@ fn probe_snapshot_files(
         }
     }
 
+
     let workspace_file_paths = workspace_files_receiver
         .recv()
         .expect("unable to fetch sorted file list from worker thread");
 
+    println!("changed files {:?}",  changed_files );
+    println!("unchanged files {:?}",unchanged_files );
+    println!("workspace_files{:?}", workspace_file_paths );
     Ok(add_untracked_files(
         changed_files,
         unchanged_files,
