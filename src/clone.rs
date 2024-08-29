@@ -10,7 +10,7 @@ use std::{
 };
 
 use super::utils::create_percentage_print_reporter;
-use crate::repo::Repository;
+use crate::repo::{self, Repository};
 
 pub const SUBCOMMAND: &str = "clone";
 
@@ -42,7 +42,7 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
 
 fn do_clone(directory: &Path, origin_url: &str) -> Result<(), Box<dyn Error>> {
     fs::create_dir(directory)?;
-    fs::create_dir(directory.join(&*Repository::data_dir()))?;
+    fs::create_dir(directory.join(repo::REPO_DIR))?;
 
     let mut repo = Repository::open(directory)?;
 

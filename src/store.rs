@@ -6,19 +6,29 @@ use log::error;
 use std::{error::Error, ffi::OsStr, fs, io, path::PathBuf};
 use walkdir::WalkDir;
 
-use super::utils::open_repo_from_cwd;
-use crate::repo::{PackId, Repository, SnapshotId};
+use super::utils::open_repo_from;
+use crate::{repo::{self, PackId, Repository, SnapshotId}, utils::open_repo_with_separate_worktree_from};
 
 pub const SUBCOMMAND: &str = "store";
+
+pub fn do_store(elfshaker_repo_dir: PathBuf, worktree_dir: PathBuf, snapshot: &str, files: &Vec<PathBuf>) -> Result<(), Box<dyn Error>> {
+    // Use snapshot name as pack name.
+    let pack_id = PathBuf::from(format!("loose/{}", snapshot));
+    let pack_id = PackId::Pack(pack_id.to_str().unwrap().to_owned());
+    let snapshot = SnapshotId::new(pack_id, snapshot)?;
+
+    fs::create_dir_all(&elfshaker_repo_dir)?;
+
+    let mut repo = open_repo_with_separate_worktree_from(&elfshaker_repo_dir, &worktree_dir)?;
+    repo.create_snapshot(&snapshot, files.into_iter())?;
+
+    Ok(())
+}
 
 pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let files_from = matches.value_of("files-from");
     let files0_from = matches.value_of("files0-from");
     let snapshot = matches.value_of("snapshot").unwrap();
-    // Use snapshot name as pack name.
-    let pack_id = PathBuf::from(format!("loose/{}", snapshot));
-    let pack_id = PackId::Pack(pack_id.to_str().unwrap().to_owned());
-    let snapshot = SnapshotId::new(pack_id, snapshot)?;
 
     if files_from.is_some() && files0_from.is_some() {
         error!("Cannot specify both --files-from and --files0-from!");
@@ -35,12 +45,7 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         _ => find_files(),
     };
 
-    fs::create_dir_all(PathBuf::from(".").join(&*Repository::data_dir()))?;
-
-    let mut repo = open_repo_from_cwd()?;
-    repo.create_snapshot(&snapshot, files.into_iter())?;
-
-    Ok(())
+    do_store(std::env::current_dir()?.join(repo::REPO_DIR), std::env::current_dir()?, &snapshot, &files)
 }
 
 pub fn get_app() -> App<'static, 'static> {

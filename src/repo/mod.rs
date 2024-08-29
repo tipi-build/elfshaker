@@ -3,7 +3,7 @@
 
 //! Contains core types for interfacing with elfshaker repositories.
 mod algo;
-mod constants;
+pub mod constants;
 mod error;
 #[doc(hidden)]
 pub mod fs;
@@ -20,4 +20,4 @@ pub use error::Error;
 #[doc(hidden)]
 pub use pack::write_skippable_frame;
 pub use pack::{Pack, PackFrame, PackHeader, PackId, SnapshotId};
-pub use repository::{ExtractOptions, PackOptions, Repository};
+pub use repository::{ExtractOptions, ExtractResult, PackOptions, Repository, repo_bridge};

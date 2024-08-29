@@ -96,15 +96,33 @@ pub fn format_size(bytes: u64) -> String {
     format!("{:.3}MiB", bytes as f64 / 1024.0 / 1024.0)
 }
 
+/// Opens the repo from the provided directory and logs some standard
+/// stats about the process.
+pub fn open_repo_with_separate_worktree_from(data_dir: &std::path::PathBuf, worktree_path: &std::path::PathBuf) -> Result<Repository, RepoError> {
+  // Open repo from cwd.
+  info!("Opening repository...");
+  let (elapsed, open_result) = measure(|| Repository::open_with_separate_worktree(&worktree_path, &data_dir));
+  info!("Opening repository took {:?}", elapsed);
+  open_result
+}
+
+
+/// Opens the repo from the provided directory and logs some standard
+/// stats about the process.
+pub fn open_repo_from(repo_path: &std::path::PathBuf) -> Result<Repository, RepoError> {
+    // Open repo from cwd.
+    info!("Opening repository...");
+    let (elapsed, open_result) = measure(|| Repository::open(&repo_path));
+    info!("Opening repository took {:?}", elapsed);
+    open_result
+}
+
 /// Opens the repo from the current work directory and logs some standard
 /// stats about the process.
 pub fn open_repo_from_cwd() -> Result<Repository, RepoError> {
     // Open repo from cwd.
     let repo_path = std::env::current_dir()?;
-    info!("Opening repository...");
-    let (elapsed, open_result) = measure(|| Repository::open(&repo_path));
-    info!("Opening repository took {:?}", elapsed);
-    open_result
+    open_repo_from(&repo_path)
 }
 
 pub fn create_percentage_print_reporter(message: &str, step: u32) -> ProgressReporter<'static> {
