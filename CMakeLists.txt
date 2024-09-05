@@ -18,6 +18,8 @@ add_subdirectory(cmake/corrosion)
 # Import targets defined in a package or workspace manifest `Cargo.toml` file
 corrosion_import_crate(MANIFEST_PATH Cargo.toml)
 corrosion_add_cxxbridge(elfshaker-cxxbridge CRATE elfshaker FILES lib.rs repo/repository.rs)
+set(corrosion_generated_dir "${CMAKE_CURRENT_BINARY_DIR}/corrosion_generated")
+set(corrosion_generated_headers "${corrosion_generated_dir}/cxxbridge/elfshaker-cxxbridge/include")
 
 FetchContent_Declare(
   Boost
@@ -33,6 +35,7 @@ find_package(boost_filesystem CONFIG REQUIRED)
 find_package(boost_uuid CONFIG REQUIRED)
 find_package(boost_included_unit_test_framework CONFIG REQUIRED)
 
+
 FetchContent_Declare(
   cpp-pre
   #SOURCE_DIR /Users/daminetreg/workspace/cpp-pre/file
@@ -42,6 +45,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(cpp-pre)
 find_package(cpp-pre_file CONFIG REQUIRED)
 
+
+set(include_install_dir "include")
 
 add_executable(test_cxxbridge tests/test_cxxbridge.cpp)
 target_link_libraries(test_cxxbridge PUBLIC elfshaker-cxxbridge cpp-pre_file::file Boost::filesystem Boost::included_unit_test_framework)
@@ -90,7 +95,7 @@ configure_package_config_file(
 
 # Targets:
 install(
-    TARGETS elfshaker elfshaker-cxxbridge
+    TARGETS elfshaker elfshaker-cxxbridge 
     EXPORT "${targets_export_name}"
     LIBRARY DESTINATION "lib"
     ARCHIVE DESTINATION "lib"
@@ -98,9 +103,15 @@ install(
     INCLUDES DESTINATION "${include_install_dir}"
 )
 
+install(
+  IMPORTED_RUNTIME_ARTIFACTS elfshaker_executable
+  LIBRARY DESTINATION "lib"
+  RUNTIME DESTINATION "bin"
+)
+
 # Headers:
 install(
-    DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+    DIRECTORY ${corrosion_generated_headers}/
     DESTINATION "${include_install_dir}"
     FILES_MATCHING PATTERN "*.[ih]*"
     PATTERN build/ EXCLUDE

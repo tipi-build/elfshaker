@@ -1,0 +1,10 @@
+{
+  
+  "terminal.integrated.scrollback": 1000000000
+  ,
+  "rust-analyzer.cargo.targetDir": "build/clang-cxx17/bin/cargo/build",
+  "files.associations": {
+    "iostream": "cpp",
+    "ostream": "cpp"
+  }
+}
