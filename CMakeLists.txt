@@ -92,7 +92,6 @@ configure_package_config_file(
     INSTALL_DESTINATION "${config_install_dir}"
 )
 
-
 # Targets:
 install(
     TARGETS elfshaker-cxxbridge 
@@ -102,6 +101,21 @@ install(
     RUNTIME DESTINATION "bin"
     INCLUDES DESTINATION "${include_install_dir}"
 )
+
+corrosion_install(
+    TARGETS elfshaker
+    EXPORT "${targets_export_name}"
+    LIBRARY DESTINATION "lib"
+    ARCHIVE DESTINATION "lib"
+    RUNTIME DESTINATION "bin"
+    INCLUDES DESTINATION "${include_install_dir}")
+
+# Install all generated files
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/corrosion/${targets_export_name}Corrosion.cmake
+  DESTINATION ${config_install_dir}
+)
+
 
 install(
   IMPORTED_RUNTIME_ARTIFACTS elfshaker_executable
@@ -136,3 +150,4 @@ install(
     NAMESPACE "${namespace}"
     DESTINATION "${config_install_dir}"
 )
+ 
