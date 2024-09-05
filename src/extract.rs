@@ -8,7 +8,7 @@ use log::{info, warn};
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd, open_repo_with_separate_worktree_from};
 use crate::packidx::PackError;
-use crate::repo::{Error as RepoError, ExtractOptions, ExtractResult};
+use crate::repo::{REPO_DIR, Error as RepoError, ExtractOptions, ExtractResult};
 
 pub const SUBCOMMAND: &str = "extract";
 
@@ -63,42 +63,18 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         n => n,
     };
 
-    let mut repo = open_repo_from_cwd()?;
-    let new_head = match repo.find_snapshot(snapshot) {
-        Err(RepoError::PackError(PackError::SnapshotNotFound(_))) => {
-            info!("Snapshot not available locally. Updating remotes...");
-            repo.update_remotes()?;
-            repo.find_snapshot(snapshot)?
-        }
-        r => r?,
-    };
-
-    match repo.read_head()? {
-        (Some(h), _) if h == new_head && !is_reset => {
-            // The specified snapshot is already extracted and --reset is not specified,
-            // so this is a no-op.
-            warn!(
-                "HEAD is already at {} and --reset is not specified. Exiting early...",
-                h,
-            );
-            return Ok(());
-        }
-        _ => {}
-    };
-
     let mut opts: ExtractOptions = ExtractOptions::default();
     opts.set_verify(is_verify);
     opts.set_reset(is_reset);
     opts.set_force(is_force);
     opts.set_num_workers(threads);
 
-    repo.set_progress_reporter(|msg| create_percentage_print_reporter(msg, 5));
-    let result = repo.extract_snapshot(new_head.clone(), opts)?;
+    let result = do_extract(std::env::current_dir()?.join(REPO_DIR), std::env::current_dir()?, snapshot, opts)?;
 
     eprintln!("A \t{} files", result.added_file_count);
     eprintln!("D \t{} files", result.removed_file_count);
     eprintln!("M \t{} files", result.modified_file_count);
-    eprintln!("Extracted '{}'", new_head);
+    eprintln!("Extracted '{}'", snapshot);
 
     Ok(())
 }

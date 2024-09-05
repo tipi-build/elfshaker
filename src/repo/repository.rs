@@ -568,7 +568,7 @@ impl Repository {
         ensure_dir(&temp_dir)?;
 
         let threads = num_cpus::get();
-
+        println!("There are so many num_cpus : {}", threads);
         let pack_entries: Vec<FileEntry> = run_in_parallel(threads, files.into_iter(), |file_path| {
             let actual_file_path:PathBuf = self.path.join(&file_path);
             let worktree_relative_file_path =
@@ -705,7 +705,8 @@ impl Repository {
 
         let mut frames = vec![];
         let mut frame_bufs = vec![];
-
+        
+        println!("There are opts.num_workers {}", opts.num_workers);
         let frame_results = run_in_parallel(
             opts.num_workers as usize,
             object_partitions.into_iter(),
@@ -1142,30 +1143,31 @@ mod tests {
         ];
         let repo = Repository {
             path: "/repo".into(),
+            data_dir: ("/repo/".to_owned() + repo::REPO_DIR).into(),
             progress_reporter_factory: Box::new(|_| ProgressReporter::dummy()),
         };
-        let path = repo.loose_object_path(&checksum);
+        let path: PathBuf = repo.loose_object_path(&checksum);
         let path_string = path.to_str().unwrap();
         #[cfg(target_family = "windows")]
-        let path_string = path_string.replace(r"\", "/");
+        let path_string = path_string.replace(r"\", "/"); 
         assert_eq!(
             format!(
                 "/repo/{}/{}/fa/f0/deadbeefbadc0de0faf0deadbeefbadc0de0",
-                Repository::data_dir(),
+                repo::REPO_DIR,
                 LOOSE_DIR
             ),
             path_string,
         );
-    }
+    } 
 
     #[test]
     fn data_dir_detected() {
-        let path = format!("{}", Repository::data_dir());
+        let path = format!("{}", repo::REPO_DIR);
         assert!(is_elfshaker_data_path(path.as_ref()));
     }
     #[test]
     fn data_dir_detected_as_parent() {
-        let path = format!("{}/something", Repository::data_dir());
+        let path = format!("{}/something", repo::REPO_DIR);
         assert!(is_elfshaker_data_path(path.as_ref()));
     }
     #[test]

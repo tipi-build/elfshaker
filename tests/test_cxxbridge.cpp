@@ -1,16 +1,22 @@
+#define BOOST_TEST_MODULE test_cxxbridge
+#include <boost/test/included/unit_test.hpp>
+
+#include <boost/filesystem.hpp>
+
 #include <elfshaker-cxxbridge/lib.h>
 #include <rust/cxx.h>
 #include <vector>
 #include <iostream>
-int main(int argc, char** argv) {
-  std::vector<uint64_t> input = { 4, 5, 6};
-  rust::Slice<const ::std::uint64_t> slice{input.data(), input.size()};
-  bridge::print(slice);
+#include <pre/file/string.hpp>
 
-  std::string worktree_path = argv[1];
+namespace fs = boost::filesystem;
+
+BOOST_AUTO_TEST_CASE(store_with_separate_worktree_smoke_test) {
+  auto temp_test_path = fs::temp_directory_path() / "elfshkr-test" / fs::unique_path();
+  std::string worktree_path = temp_test_path.string();
   worktree_path += "/worktree";
 
-  std::string elfshaker_data_dir = argv[1];
+  std::string elfshaker_data_dir = temp_test_path.string();
   elfshaker_data_dir += "/elfshaker_data";
 
   try {
@@ -19,10 +25,9 @@ int main(int argc, char** argv) {
     std::cout << e.what() << std::endl;
   }
 
-  int i;
-  std::cin >> i;
-  //std::cout << "Initialization " << std::boolalpha << result << std::endl;
-  bridge::store( elfshaker_data_dir, worktree_path, { std::string{argv[2]} }, "banana"); 
+  pre::file::from_string((fs::path{worktree_path} / "README.md").string(), "A readme to store!");
+
+  bridge::store( elfshaker_data_dir, worktree_path, { "README.md" }, "myrevision-hash"); 
 
   {
     auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "init", bridge::ExtractOptions{
@@ -37,9 +42,8 @@ int main(int argc, char** argv) {
     std::cout << "M: " <<  extracted.modified_file_count 
     << std::endl;
   }
-std::cin >> i;
   {
-    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "banana", bridge::ExtractOptions{
+    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "myrevision-hash", bridge::ExtractOptions{
       .verify = false,
       .force = true,
       .reset = false,
@@ -52,7 +56,6 @@ std::cin >> i;
     << std::endl;
   }
 
-  std::cin >> i;
     {
     auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "init", bridge::ExtractOptions{
       .verify = true,
@@ -66,14 +69,12 @@ std::cin >> i;
     std::cout << "M: " <<  extracted.modified_file_count 
     << std::endl;
   }
-std::cin >> i;
   {
     bridge::pack(elfshaker_data_dir, worktree_path, "mypack", 12, 0);
   }
 
-std::cin >> i;
   {
-    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "banana", bridge::ExtractOptions{
+    auto extracted = bridge::extract( elfshaker_data_dir, worktree_path, "myrevision-hash", bridge::ExtractOptions{
       .verify = false,
       .force = true,
       .reset = false,
@@ -87,13 +88,11 @@ std::cin >> i;
   }
 
 
-std::cin >> i;
   {
-    auto status_list = bridge::status(elfshaker_data_dir, worktree_path, "banana");
+    auto status_list = bridge::status(elfshaker_data_dir, worktree_path, "myrevision-hash");
     std::cout << "Status List : " << std::endl;
     for (auto st : status_list) {
       std::cout << st << std::endl;
     }
   }
-  return 0;
 }

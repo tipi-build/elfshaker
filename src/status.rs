@@ -5,7 +5,7 @@ use clap::{App, Arg, ArgMatches};
 use crypto::{digest::Digest, sha1::Sha1};
 use crate::repo::{
     fs::{get_last_modified, open_file},
-    Repository, SnapshotId,
+    Repository, SnapshotId, REPO_DIR,
 };
 use crate::packidx::PackError;
 use filetime::FileTime;
@@ -109,12 +109,12 @@ fn probe_snapshot_files(
     let pool = threadpool::ThreadPool::new(1);
     let (workspace_files_sender, workspace_files_receiver) = channel();
     let repo_worktree = repo.path().to_owned();
+    let repo_datadir= repo.data_dir().to_owned();
     pool.execute(move || {
         let base_dir = String::from(repo_worktree.to_str().unwrap()) + "/";
         let mut normalised_paths = HashSet::new();
         let mut symlink_targets_in_tree = HashSet::new();
 
-        println!("Walking dir from {}", base_dir);
         let walker = walkdir::WalkDir::new(&base_dir);
         for entry in walker {
             let entry = entry.unwrap();
@@ -130,7 +130,7 @@ fn probe_snapshot_files(
             #[cfg(not(target_family = "windows"))]
             let path = original_path.clone();
 
-            if path != "." && !path.starts_with("./elfshaker_data") {
+            if path != "." && !path.starts_with(repo_datadir.to_str().unwrap()) {
                 normalised_paths.insert(path.strip_prefix(base_dir.as_str()).unwrap().to_string());
                 
 
@@ -247,7 +247,7 @@ fn probe_snapshot_files(
         };
 
         let mut path_string = path.strip_prefix(repo.path())?.display().to_string();
-        println!("CUrrent path : {} ", path_string);
+        //println!("CUrrent path : {} ", path_string);
         //if path_string.starts_with("./") == false {
         //    path_string = format!("./{}", path_string);
         //}
@@ -264,9 +264,9 @@ fn probe_snapshot_files(
         .recv()
         .expect("unable to fetch sorted file list from worker thread");
 
-    println!("changed files {:?}",  changed_files );
-    println!("unchanged files {:?}",unchanged_files );
-    println!("workspace_files{:?}", workspace_file_paths );
+    //println!("changed files {:?}",  changed_files );
+    //println!("unchanged files {:?}",unchanged_files );
+    //println!("workspace_files{:?}", workspace_file_paths );
     Ok(add_untracked_files(
         changed_files,
         unchanged_files,

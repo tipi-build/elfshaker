@@ -19,13 +19,13 @@ fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
         .expect("unable to initialise foo.txt");
 
     // 2. prepare: create first snapshot
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.current_dir(temp.path());
     cmd.arg("store").arg("snapshot1");
     cmd.assert().success();
 
     // 3. prepare: pack first snapshot
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.current_dir(temp.path());
     cmd.arg("pack").arg("pack1");
     cmd.assert().success();
@@ -40,25 +40,25 @@ fn run_loosen_and_repack() -> Result<(), Box<dyn std::error::Error>> {
         .expect("unable to write");
 
     // 5. loosen prepared/downloaded pack
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.current_dir(temp.path());
     cmd.arg("loosen").arg("pack1");
     cmd.assert().success();
 
     // 6. store local changes
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.current_dir(temp.path());
     cmd.arg("store").arg("snapshot2");
     cmd.assert().success();
 
     // 7. "repack"
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.current_dir(temp.path());
     cmd.arg("pack").arg("pack2");
     cmd.assert().success();
 
     // 8. check snapshots
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.current_dir(temp.path());
     cmd.arg("list").arg("pack2");
     cmd.assert()
@@ -80,20 +80,20 @@ fn package_file_see_status() -> Result<(), Box<dyn std::error::Error>> {
         .expect("unable to write initially");
 
     // 2. prepare: create first snapshot
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["store", "snapshot1"]);
     cmd.current_dir(temp.path());
     cmd.assert().success();
 
     // 3. prepare: pack first snapshot
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["pack", "pack1"]);
     cmd.current_dir(temp.path());
     cmd.assert().success();
 
     // 4. check status
 
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["status", "--json", "pack1:snapshot1"]);
     cmd.current_dir(temp.path());
     let clean = cmd.output()?;
@@ -108,13 +108,13 @@ fn package_file_see_status() -> Result<(), Box<dyn std::error::Error>> {
         .expect("unable to update foo.txt");
 
     // 6. check status: ["foo.txt"]
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["status", "--json", "pack1:snapshot1"]);
     cmd.current_dir(temp.path());
     let dirty = cmd.output()?;
     assert!(dirty.status.success());
     assert_eq!(
-        "[\"./foo.txt\"]\n".to_string(),
+        "[\"foo.txt\"]\n".to_string(),
         String::from_utf8_lossy(&dirty.stdout)
     );
 
@@ -147,20 +147,20 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
     symlink(foo_file.path(), &symlink_file).expect("unable to create symlink");
 
     // 2. prepare: create first snapshot
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["store", "snapshot1"]);
     cmd.current_dir(temp.path());
     cmd.assert().success();
 
     // 3. prepare: pack first snapshot
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["pack", "pack1"]);
     cmd.current_dir(temp.path());
     cmd.assert().success();
 
     // 4. check status
 
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["status", "--json", "pack1:snapshot1"]);
     cmd.current_dir(temp.path());
     let clean = cmd.output()?;
@@ -175,13 +175,13 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
         .expect("unable to update foo.txt");
 
     // 6. check status: ["foo.txt"]
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["status", "--json", "pack1:snapshot1"]);
     cmd.current_dir(temp.path());
     let dirty = cmd.output()?;
     assert!(dirty.status.success());
     assert_eq!(
-        "[\"./foo.txt\"]\n".to_string(),
+        "[\"foo.txt\"]\n".to_string(),
         String::from_utf8_lossy(&dirty.stdout)
     );
 
@@ -194,13 +194,13 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
     symlink(&bar_file, symlink_file).expect("unable to update symlink");
 
     // 8. check status:
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["status", "--json", "pack1:snapshot1"]);
     cmd.current_dir(temp.path());
     let dirty = cmd.output()?;
     assert!(dirty.status.success());
     assert_eq!(
-        r#"["./bar.txt","./foo.txt","./link.txt"]"#.to_string(),
+        r#"["bar.txt","foo.txt","link.txt"]"#.to_string(),
         String::from_utf8_lossy(&dirty.stdout).trim()
     );
 
@@ -245,25 +245,25 @@ fn symlink_to_directory() -> Result<(), Box<dyn std::error::Error>> {
     symlink(real_dir.path(), &symlink_dir).expect("unable to create symlink");
 
     // 2. prepare: create first snapshot
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["store", "snapshot1"]);
     cmd.current_dir(temp.path());
     cmd.assert().success();
 
     // 3. prepare: pack first snapshot
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["pack", "pack1"]);
     cmd.current_dir(temp.path());
     cmd.assert().success();
 
     // 4. check status
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["status", "--json", "pack1:snapshot1"]);
     cmd.current_dir(temp.path());
     let clean = cmd.output()?;
     assert!(clean.status.success());
     assert_eq!(
-        r#"["./link_dir"]"#,
+        r#"["link_dir"]"#,
         String::from_utf8_lossy(&clean.stdout).trim()
     );
 
@@ -283,14 +283,14 @@ fn symlink_to_directory() -> Result<(), Box<dyn std::error::Error>> {
 
     // 6. check status:
     println!("final status");
-    let mut cmd = Command::cargo_bin("elfshaker")?;
+    let mut cmd = Command::cargo_bin("elfshaker_executable")?;
     cmd.args(["status", "--json", "pack1:snapshot1"]);
     cmd.current_dir(temp.path());
     let dirty = cmd.output()?;
     assert!(dirty.status.success());
     // old some.txt is stored by elfshaker twice
     assert_eq!(
-        r#"["./link_dir","./link_dir/some.txt"]"#.to_string(),
+        r#"["link_dir","link_dir/some.txt"]"#.to_string(),
         String::from_utf8_lossy(&dirty.stdout).trim()
     );
 

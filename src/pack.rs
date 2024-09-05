@@ -36,7 +36,7 @@ pub fn do_pack(data_dir_location: PathBuf, worktree_path: PathBuf, pack:&str, co
   }
 
   // Parse --threads
-  match threads {
+  let threads = match threads {
       0 => {
           let phys_cores = num_cpus::get_physical();
           info!(
@@ -78,7 +78,7 @@ pub fn do_pack(data_dir_location: PathBuf, worktree_path: PathBuf, pack:&str, co
   }
 
   // Parse --frames
-  match frames {
+  let frames = match frames {
       0 => {
           let loose_size = new_index.object_size_total();
           let frames = get_frame_size_hint(loose_size);
