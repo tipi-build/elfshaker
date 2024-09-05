@@ -95,7 +95,7 @@ configure_package_config_file(
 
 # Targets:
 install(
-    TARGETS elfshaker elfshaker-cxxbridge 
+    TARGETS elfshaker-cxxbridge 
     EXPORT "${targets_export_name}"
     LIBRARY DESTINATION "lib"
     ARCHIVE DESTINATION "lib"
