@@ -42,7 +42,7 @@ use crate::{
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::PermissionsExt;
 
-#[cxx::bridge(namespace = "bridge")]
+#[cxx::bridge(namespace = "elfshaker")]
 pub mod repo_bridge {
   /// A struct specifying the the extract options.
   #[derive(Clone, Debug)]

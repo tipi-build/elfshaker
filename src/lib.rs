@@ -41,7 +41,7 @@ use std::string::String;
 //    }
 //}
 
-#[cxx::bridge(namespace = "bridge")]
+#[cxx::bridge(namespace = "elfshaker")]
 mod bridge {
 
   extern "C++" {
