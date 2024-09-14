@@ -1,0 +1,131 @@
+name: cmake-build
+# This workflow is  triggered on pushes, pull requests to the repository.
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+env:
+  version_in_development: v0.0.17
+  TIPI_CACHE_FORCE_ENABLE: ON
+  CMAKE_TIPI_PROVIDER_ENABLE: ON
+
+jobs:
+
+jobs:
+  draft-release:
+    name: Draft Release if develop branch
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.draft_release.outputs.upload_url }}  
+      release_id: ${{ steps.draft_release.outputs.id }}  
+    steps:
+      - name: Create Release
+        id: draft_release
+        if: github.ref == 'refs/heads/develop' || github.head_ref == 'feature/sha1-streaming'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          owner: tipi-build 
+          repo: elfshaker
+          commitish: main
+          tag_name: ${{ env.version_in_development }}
+          release_name: ${{ env.version_in_development }} ${{ github.sha }}
+          draft: true
+          prerelease: true 
+
+
+
+  build-win:
+    name: build-win
+    runs-on: windows-2019
+    needs: draft-release
+    env:
+      PreferredToolArchitecture: x64
+    steps:
+      - uses: actions/checkout@v2
+      - name: install and build 
+        run: |
+          Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
+          ./rustup-init.exe -q -y
+          tipi . -t windows-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
+          # Compress-Archive -Path .\build\windows-cxx17\bin\release\elfshaker_executable.exe -DestinationPath ./elfshaker-win.zip
+      - uses: actions/upload-artifact@v3
+        with:
+          name: elfshaker_win_artifact
+          path: ./elfshaker-win.zip
+      - name: Upload elfshaker package
+        id: upload-tipi-elfshaker-package 
+        uses: actions/upload-release-asset@v1
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{needs.draft-release.outputs.upload_url}}
+          asset_path: ./elfshaker-win.zip
+          asset_name: elfshaker-win.zip
+          asset_content_type: application/zip
+
+  build-macos:
+    name: build-macos
+    runs-on: macos-latest
+    needs: draft-release
+    steps:
+      - uses: actions/checkout@v2
+      - name: install and build 
+        run: |
+          curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
+          chmod +x ./sh.rustup.sh
+          ./sh.rustup.sh -q -y
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
+          chmod +x ./build/macos-cxx17/elfshaker_executable
+          zip -j elfshaker-macos.zip ./build/macos-cxx17/elfshaker_executable 
+      - uses: actions/upload-artifact@v3
+        with:
+          name: elfshaker_macos_artifact
+          path: ./elfshaker.zip
+      - name: Upload elfshaker package
+        id: upload-tipi-elfshaker-package 
+        uses: actions/upload-release-asset@v1
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{needs.draft-release.outputs.upload_url}}
+          asset_path: ./elfshaker-macos.zip
+          asset_name: elfshaker-macos.zip
+          asset_content_type: application/zip
+
+  build-linux:
+    name: build-linux
+    runs-on: ubuntu-latest
+    container: 
+      image: tipibuild/tipi-ubuntu-1604
+    needs: draft-release
+    steps:
+      - uses: actions/checkout@v2
+      - name: install and build 
+        run: |
+          sudo apt update && sudo apt install zip -y
+          curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
+          chmod +x ./sh.rustup.sh
+          ./sh.rustup.sh -q -y --no-modify-path
+          export PATH="$HOME/.cargo/bin:$PATH"
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
+          chmod +x ./build/linux-cxx17/bin/elfshaker_executable
+          zip -j elfshaker-linux.zip ./build/linux-cxx17/bin/elfshaker_executable
+      - uses: actions/upload-artifact@v3
+        with:
+          name: elfshaker_linux_artifact
+          path: ./elfshaker.zip
+      - name: Upload elfshaker package
+        id: upload-tipi-elfshaker-package 
+        uses: actions/upload-release-asset@v1
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{needs.draft-release.outputs.upload_url}}
+          asset_path: ./elfshaker-linux.zip
+          asset_name: elfshaker-linux.zip
+          asset_content_type: application/zip
+
