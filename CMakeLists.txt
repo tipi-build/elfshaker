@@ -13,7 +13,10 @@ set(FETCHCONTENT_QUIET OFF CACHE BOOL "" FORCE)
 #    GIT_TAG c6132b645d1a0061a5c29ccf6a1d3c6f90490829 # v0.5 patched to support test execution, see https://github.com/tipi-build/corrosion/pull/1
 #)
 #FetchContent_MakeAvailable(Corrosion)
+set(CORROSION_VERBOSE_OUTPUT ON)
 add_subdirectory(cmake/corrosion)
+list(REMOVE_ITEM Rust_CARGO_TARGET_LINK_NATIVE_LIBS "gcc_s")
+set(Rust_CARGO_TARGET_LINK_NATIVE_LIBS "${Rust_CARGO_TARGET_LINK_NATIVE_LIBS}" CACHE INTERNAL "Required native libraries when linking Rust static libraries")
 
 # Import targets defined in a package or workspace manifest `Cargo.toml` file
 corrosion_import_crate(MANIFEST_PATH Cargo.toml)
