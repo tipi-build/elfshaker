@@ -4,7 +4,7 @@
 [package]
 name = "elfshaker"
 version = "0.1.0"
-authors = ["Veselin Karaganev <veselin.karaganev@arm.com>", "Peter Waller <peter.waller@arm.com>"]
+authors = ["tipi technologies Ltd. <hello@tipi.build>", "Veselin Karaganev <veselin.karaganev@arm.com>", "Peter Waller <peter.waller@arm.com>"]
 edition = "2018"
 
 [[bin]]

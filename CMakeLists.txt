@@ -15,8 +15,6 @@ set(FETCHCONTENT_QUIET OFF CACHE BOOL "" FORCE)
 #FetchContent_MakeAvailable(Corrosion)
 set(CORROSION_VERBOSE_OUTPUT ON)
 add_subdirectory(cmake/corrosion)
-list(REMOVE_ITEM Rust_CARGO_TARGET_LINK_NATIVE_LIBS "gcc_s")
-set(Rust_CARGO_TARGET_LINK_NATIVE_LIBS "${Rust_CARGO_TARGET_LINK_NATIVE_LIBS}" CACHE INTERNAL "Required native libraries when linking Rust static libraries")
 
 # Import targets defined in a package or workspace manifest `Cargo.toml` file
 corrosion_import_crate(MANIFEST_PATH Cargo.toml)
