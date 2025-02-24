@@ -29,13 +29,14 @@ BOOST_AUTO_TEST_CASE(store_with_separate_worktree_smoke_test) {
 
   elfshaker::store( elfshaker_data_dir, worktree_path, { "README.md" }, "myrevision-hash"); 
 
+  elfshaker::ExtractOptions extract_options{};
+  extract_options.verify = false;
+  extract_options.force = true;
+  extract_options.reset = false;
+  extract_options.num_workers = 32;
+
   {
-    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, "init", elfshaker::ExtractOptions{
-      .verify = false,
-      .force = true,
-      .reset = false,
-      .num_workers = 32
-    });
+    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, "init", extract_options);
 
     std::cout << "A: " <<  extracted.added_file_count << "\n";
     std::cout << "D: " <<  extracted.removed_file_count << "\n";
@@ -43,12 +44,7 @@ BOOST_AUTO_TEST_CASE(store_with_separate_worktree_smoke_test) {
     << std::endl;
   }
   {
-    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, "myrevision-hash", elfshaker::ExtractOptions{
-      .verify = false,
-      .force = true,
-      .reset = false,
-      .num_workers = 32
-    });
+    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, "myrevision-hash", extract_options);
 
     std::cout << "A: " <<  extracted.added_file_count << "\n";
     std::cout << "D: " <<  extracted.removed_file_count << "\n";
@@ -56,13 +52,14 @@ BOOST_AUTO_TEST_CASE(store_with_separate_worktree_smoke_test) {
     << std::endl;
   }
 
-    {
-    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, "init", elfshaker::ExtractOptions{
-      .verify = true,
-      .force = true,
-      .reset = false,
-      .num_workers = 32
-    });
+  {
+    elfshaker::ExtractOptions extract_options_verify{};
+    extract_options.verify = true;
+    extract_options.force = true;
+    extract_options.reset = false;
+    extract_options.num_workers = 32;  
+
+    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, "init", extract_options_verify);
 
     std::cout << "A: " <<  extracted.added_file_count << "\n";
     std::cout << "D: " <<  extracted.removed_file_count << "\n";
@@ -74,12 +71,7 @@ BOOST_AUTO_TEST_CASE(store_with_separate_worktree_smoke_test) {
   }
 
   {
-    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, "myrevision-hash", elfshaker::ExtractOptions{
-      .verify = false,
-      .force = true,
-      .reset = false,
-      .num_workers = 32
-    });
+    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, "myrevision-hash", extract_options);
 
     std::cout << "A: " <<  extracted.added_file_count << "\n";
     std::cout << "D: " <<  extracted.removed_file_count << "\n";
