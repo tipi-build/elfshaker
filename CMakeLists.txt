@@ -22,17 +22,6 @@ corrosion_add_cxxbridge(elfshaker-cxxbridge CRATE elfshaker FILES lib.rs repo/re
 set(corrosion_generated_dir "${CMAKE_CURRENT_BINARY_DIR}/corrosion_generated")
 set(corrosion_generated_headers "${corrosion_generated_dir}/cxxbridge/elfshaker-cxxbridge/include")
 
-if(MSVC)
-  if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-    corrosion_set_env_vars(elfshaker "CXXFLAGS=-MD" "CFLAGS=-MD") # ensure that the rust library links the expected runtime lib
-  else()
-    message(WARNING
-      "Currently the elfshaker as a library integration only supports CMAKE_BUILD_TYPE = Release or CMAKE_BUILD_TYPE = RelWithDebInfo"
-      "This is related to how rustc links to the release version of the msvcrt by default"
-    )
-  endif()
-endif()
-
 FetchContent_Declare(
   Boost
   GIT_REPOSITORY https://github.com/boostorg/boost.git
@@ -65,7 +54,7 @@ target_link_libraries(test_cxxbridge PUBLIC elfshaker-cxxbridge cpp-pre_file::fi
 if (CMAKE_SYSTEM_NAME MATCHES Darwin)
     target_link_libraries(test_cxxbridge PUBLIC "-framework Foundation")
 endif()
-add_test(NAME test_cxxbridge COMMAND $<TARGET_FILE:test_cxxbridge>)
+add_test(NAME test_cxxbridge COMMAND $<TARGET_FILE:test_cxxbridge>) 
 
 
 
@@ -106,7 +95,7 @@ configure_package_config_file(
 
 # Targets:
 install(
-    TARGETS elfshaker-cxxbridge
+    TARGETS elfshaker-cxxbridge 
     EXPORT "${targets_export_name}"
     LIBRARY DESTINATION "lib"
     ARCHIVE DESTINATION "lib"
@@ -141,11 +130,11 @@ install(
     DESTINATION "${include_install_dir}"
     FILES_MATCHING PATTERN "*.[ih]*"
     PATTERN build/ EXCLUDE
-    PATTERN "/build*" EXCLUDE
-    PATTERN ".git/*" EXCLUDE
-    PATTERN ".tipistore/*" EXCLUDE
-    PATTERN "doc/*" EXCLUDE
-    PATTERN "node_modules/*" EXCLUDE
+    PATTERN "/build*" EXCLUDE 
+    PATTERN ".git/*" EXCLUDE 
+    PATTERN ".tipistore/*" EXCLUDE 
+    PATTERN "doc/*" EXCLUDE 
+    PATTERN "node_modules/*" EXCLUDE 
 )
 
 # Config
@@ -162,3 +151,4 @@ install(
     NAMESPACE "${namespace}"
     DESTINATION "${config_install_dir}"
 )
+ 
