@@ -13,10 +13,10 @@ namespace fs = boost::filesystem;
 
 BOOST_AUTO_TEST_CASE(store_with_separate_worktree_smoke_test) {
   auto temp_test_path = fs::temp_directory_path() / "elfshkr-test" / fs::unique_path();
-  std::string worktree_path = temp_test_path.string();
+  std::string worktree_path = temp_test_path.generic_string();
   worktree_path += "/worktree";
 
-  std::string elfshaker_data_dir = temp_test_path.string();
+  std::string elfshaker_data_dir = temp_test_path.generic_string();
   elfshaker_data_dir += "/elfshaker_data";
 
   try {
@@ -25,7 +25,7 @@ BOOST_AUTO_TEST_CASE(store_with_separate_worktree_smoke_test) {
     std::cout << e.what() << std::endl;
   }
 
-  pre::file::from_string((fs::path{worktree_path} / "README.md").string(), "A readme to store!");
+  pre::file::from_string((fs::path{worktree_path} / "README.md").generic_string(), "A readme to store!");
 
   elfshaker::store( elfshaker_data_dir, worktree_path, { "README.md" }, "myrevision-hash"); 
 
