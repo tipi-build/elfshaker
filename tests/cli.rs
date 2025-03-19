@@ -164,6 +164,7 @@ fn package_file_see_status_symlink() -> Result<(), Box<dyn std::error::Error>> {
     cmd.args(["status", "--json", "pack1:snapshot1"]);
     cmd.current_dir(temp.path());
     let clean = cmd.output()?;
+    println!("status json output : out:{:?}, err:{:?}", &String::from_utf8_lossy(&clean.stdout), String::from_utf8_lossy(&clean.stderr));
     assert!(clean.status.success());
     assert_eq!("[]", String::from_utf8_lossy(&clean.stdout).trim());
     //.assert().success();

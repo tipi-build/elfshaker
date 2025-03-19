@@ -152,8 +152,7 @@ fn probe_snapshot_files(
                         #[cfg(target_family = "windows")]
                         let path = Repository::replace_back_to_slash(&*path);
 
-                        //println!("symlink target: {path}");
-                        symlink_targets_in_tree.insert(path.strip_prefix(base_dir.as_str()).unwrap().to_string());
+                        symlink_targets_in_tree.insert(path);
                     }
                 }
             }
