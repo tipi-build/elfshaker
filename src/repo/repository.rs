@@ -561,7 +561,7 @@ impl Repository {
         I: Iterator<Item = P>,
         P: AsRef<Path>,
     {
-        let files = clean_file_list(self.path.as_ref(), files)?.collect::<Vec<_>>();
+        let files = clean_file_list(self.data_dir(), self.path.as_ref(), files)?.collect::<Vec<_>>();
         info!("Computing checksums for {} files...", files.len());
 
         let temp_dir = self.temp_dir();
@@ -1081,12 +1081,13 @@ impl Repository {
 /// Cleans the list of file paths relative to the repository root,
 /// and skips any paths pointing into the repository data directory.
 fn clean_file_list<P>(
+    _data_dir: PathBuf,
     _repo_dir: &Path,
     files: impl Iterator<Item = P>,
 ) -> io::Result<impl Iterator<Item = PathBuf>>
 where
     P: AsRef<Path>,
-{
+{   
     let files = files
         .flat_map(|p| {
             if p.as_ref().is_relative() {
@@ -1101,17 +1102,18 @@ where
         .map(|p| Ok(p.as_ref().components().collect::<PathBuf>()))
         .collect::<io::Result<Vec<PathBuf>>>()?
         .into_iter()
-        .filter(|p| !is_elfshaker_data_path(p));
+        .filter(move |p| !is_elfshaker_data_path(_data_dir.as_path(), p));
     Ok(files)
 }
 
 /// Checks if the relative path is rooted at the data directory.
-fn is_elfshaker_data_path(p: &Path) -> bool {
+fn is_elfshaker_data_path(_data_dir: &Path, p: &Path) -> bool {
     assert!(p.is_relative());
-    match p.components().next() {
+    p.starts_with(_data_dir)
+    /*match p.components().next() {
         Some(c) => c.as_os_str() == REPO_DIR,
         _ => false,
-    }
+    }*/
 }
 
 #[cfg(test)]
@@ -1162,18 +1164,24 @@ mod tests {
 
     #[test]
     fn data_dir_detected() {
+        let data_dir = Path::new(repo::REPO_DIR);
         let path = format!("{}", repo::REPO_DIR);
-        assert!(is_elfshaker_data_path(path.as_ref()));
+        
+        assert!(is_elfshaker_data_path(data_dir, path.as_ref()));
     }
     #[test]
     fn data_dir_detected_as_parent() {
+        let data_dir = Path::new(repo::REPO_DIR);
         let path = format!("{}/something", repo::REPO_DIR);
-        assert!(is_elfshaker_data_path(path.as_ref()));
+
+        assert!(is_elfshaker_data_path(data_dir, path.as_ref()));
     }
     #[test]
     fn data_dir_not_detected_incorrectly() {
+        let data_dir = Path::new(repo::REPO_DIR);
         let path = "some/path/something";
-        assert!(!is_elfshaker_data_path(path.as_ref()));
+
+        assert!(!is_elfshaker_data_path(data_dir, path.as_ref()));
     }
 
     #[test]
