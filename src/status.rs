@@ -113,12 +113,12 @@ fn probe_snapshot_files(
     #[cfg(target_family = "windows")]
     let repo_worktree = Repository::replace_back_to_slash(repo.path().to_owned().to_str().unwrap());
     #[cfg(not(target_family = "windows"))]
-    let repo_worktree = repo.path().to_owned().to_str().unwrap();
+    let repo_worktree = repo.path().to_str().unwrap().to_string();
 
     #[cfg(target_family = "windows")]
     let repo_datadir= Repository::replace_back_to_slash(repo.data_dir().to_owned().to_str().unwrap());
     #[cfg(not(target_family = "windows"))]
-    let repo_datadir= repo.data_dir().to_owned().to_str();
+    let repo_datadir= repo.data_dir().to_str().unwrap().to_string();
 
     pool.execute(move || {
         let base_dir = repo_worktree + "/";
@@ -137,7 +137,7 @@ fn probe_snapshot_files(
             #[cfg(target_family = "windows")]
             let path = Repository::replace_back_to_slash(&original_path);
             #[cfg(not(target_family = "windows"))]
-            let path = original_path.to_str();
+            let path = original_path;
 
             //println!("path:'{path}' and base_dir:'{base_dir}', repo_data_dir:'{repo_datadir}' ");
             if path != base_dir && !path.starts_with(repo_datadir.as_str()) {
