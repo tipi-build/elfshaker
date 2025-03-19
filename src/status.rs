@@ -59,6 +59,7 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         std::process::exit(23)
     } else {
         let snapshot = repo.find_snapshot(snapshot_or_pack)?;
+        //TODO: use do_status!
         probe_snapshot_files(&repo, &snapshot)?
     };
 
@@ -108,12 +109,20 @@ fn probe_snapshot_files(
 ) -> Result<Vec<String>, Box<dyn Error>> {
     let pool = threadpool::ThreadPool::new(1);
     let (workspace_files_sender, workspace_files_receiver) = channel();
-    let repo_worktree = repo.path().to_owned();
-    let repo_datadir= repo.data_dir().to_owned();
+
+    #[cfg(target_family = "windows")]
+    let repo_worktree = Repository::replace_back_to_slash(repo.path().to_owned().to_str().unwrap());
+    #[cfg(not(target_family = "windows"))]
+    let repo_worktree = repo.path().to_owned().to_str().unwrap();
+
+    #[cfg(target_family = "windows")]
+    let repo_datadir= Repository::replace_back_to_slash(repo.data_dir().to_owned().to_str().unwrap());
+    #[cfg(not(target_family = "windows"))]
+    let repo_datadir= repo.data_dir().to_owned().to_str();
+
     pool.execute(move || {
-        let base_dir = String::from(repo_worktree.to_str().unwrap()) + "/";
+        let base_dir = repo_worktree + "/";
         let mut normalised_paths = HashSet::new();
-        let mut symlink_targets_in_tree = HashSet::new();
 
         let walker = walkdir::WalkDir::new(&base_dir);
         for entry in walker {
@@ -128,43 +137,16 @@ fn probe_snapshot_files(
             #[cfg(target_family = "windows")]
             let path = Repository::replace_back_to_slash(&original_path);
             #[cfg(not(target_family = "windows"))]
-            let path = original_path.clone();
+            let path = original_path.to_str();
 
-            if path != "." && !path.starts_with(repo_datadir.to_str().unwrap()) {
+            //println!("path:'{path}' and base_dir:'{base_dir}', repo_data_dir:'{repo_datadir}' ");
+            if path != base_dir && !path.starts_with(repo_datadir.as_str()) {
                 normalised_paths.insert(path.strip_prefix(base_dir.as_str()).unwrap().to_string());
-                
-
-                if metadata.is_symlink() {
-                    if let Ok(target) = fs::read_link(original_path) {
-                        let target = if target.is_absolute() {
-                            // make relative
-                            if let Ok(target) = target.strip_prefix(&base_dir) {
-                                target
-                            } else {
-                                // out of tree, skipping
-                                continue;
-                            }
-                        } else {
-                            &target
-                        };
-
-                        let path = target.display().to_string();
-                        #[cfg(target_family = "windows")]
-                        let path = Repository::replace_back_to_slash(&*path);
-
-                        symlink_targets_in_tree.insert(path);
-                    }
-                }
             }
         }
 
-        let filtered_paths = normalised_paths
-            .difference(&symlink_targets_in_tree)
-            .cloned()
-            .collect();
-
         workspace_files_sender
-            .send(filtered_paths)
+            .send(normalised_paths)
             .expect("unable to send file list to main thread");
     });
 
