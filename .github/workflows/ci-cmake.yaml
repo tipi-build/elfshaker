@@ -102,7 +102,7 @@ jobs:
     name: build-linux
     runs-on: ubuntu-latest
     container: 
-      image: tipibuild/tipi-ubuntu-2004:latest
+      image: tipibuild/tipi-ubuntu:latest
     needs: draft-release
     steps:
       - uses: actions/checkout@v4
