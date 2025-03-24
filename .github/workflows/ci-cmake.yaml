@@ -53,10 +53,6 @@ jobs:
           ./rustup-init.exe -q -y
           tipi . -t windows-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
           # Compress-Archive -Path .\build\windows-cxx17\bin\release\elfshaker_executable.exe -DestinationPath ./elfshaker-win.zip
-      - uses: actions/upload-artifact@v3
-        with:
-          name: elfshaker_win_artifact
-          path: ./elfshaker-win.zip
       - name: Upload elfshaker package
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
@@ -82,10 +78,6 @@ jobs:
           tipi . -t macos-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
           chmod +x ./build/macos-cxx17/elfshaker_executable
           zip -j elfshaker-macos.zip ./build/macos-cxx17/elfshaker_executable 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: elfshaker_macos_artifact
-          path: ./elfshaker.zip
       - name: Upload elfshaker package
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
@@ -115,10 +107,6 @@ jobs:
           tipi . -t linux-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
           chmod +x ./build/linux-cxx17/bin/elfshaker_executable
           zip -j elfshaker-linux.zip ./build/linux-cxx17/bin/elfshaker_executable
-      - uses: actions/upload-artifact@v3
-        with:
-          name: elfshaker_linux_artifact
-          path: ./elfshaker.zip
       - name: Upload elfshaker package
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
