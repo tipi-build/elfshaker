@@ -46,9 +46,13 @@ jobs:
     env:
       PreferredToolArchitecture: x64
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: install and build 
         run: |
+          Invoke-WebRequest -Uri https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_windows.ps1 -OutFile install_for_windows.ps1 
+          ./install_for_windows.ps1
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
           ./rustup-init.exe -q -y
           tipi . -t windows-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
@@ -69,9 +73,14 @@ jobs:
     runs-on: macos-latest
     needs: draft-release
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: install and build 
         run: |
+          curl -fsSL https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_macos_linux.sh --output ./install_for_macos_linux.sh
+          chmod +x ./install_for_macos_linux.sh
+          ./install_for_macos_linux.sh
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
           ./sh.rustup.sh -q -y
@@ -93,10 +102,12 @@ jobs:
     name: build-linux
     runs-on: ubuntu-latest
     container: 
-      image: tipibuild/tipi-ubuntu-1604
+      image: tipibuild/tipi-ubuntu-2004:latest
     needs: draft-release
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: install and build 
         run: |
           sudo apt update && sudo apt install zip -y
