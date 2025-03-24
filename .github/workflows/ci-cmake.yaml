@@ -10,11 +10,6 @@ env:
   version_in_development: v0.0.17
   TIPI_CACHE_FORCE_ENABLE: ON
   CMAKE_TIPI_PROVIDER_ENABLE: ON
-  # Fix https://github.com/actions/checkout/issues/1809
-  ACTIONS_RUNNER_FORCED_INTERNAL_NODE_VERSION: node16
-  ACTIONS_RUNNER_FORCE_ACTIONS_NODE_VERSION: node16
-  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true 
-
 
 jobs:
   draft-release:
@@ -48,6 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: true
           fetch-depth: 0
       - name: install and build 
         run: |
@@ -75,6 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: true
           fetch-depth: 0
       - name: install and build 
         run: |
@@ -107,6 +104,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: true
           fetch-depth: 0
       - name: install and build 
         run: |
