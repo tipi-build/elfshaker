@@ -13,6 +13,8 @@ env:
 
 jobs:
   draft-release:
+    permissions:
+      contents: write
     name: Draft Release
     runs-on: ubuntu-latest
     outputs:
