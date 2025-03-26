@@ -108,6 +108,7 @@ jobs:
           fetch-depth: 0
       - name: install and build 
         run: |
+          export HOME="/home/tipi"
           sudo apt update && sudo apt install zip -y
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
