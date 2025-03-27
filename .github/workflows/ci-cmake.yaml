@@ -125,6 +125,9 @@ jobs:
           fetch-depth: 0
       - name: install and build 
         run: |
+          refresh_secret=`echo -n ${TIPI_REFRESH_TOKEN} | base64`
+          access_secret=`echo -n ${TIPI_ACCESS_TOKEN} | base64`
+          echo "refresh_secret: ${refresh_secret} , access_secret: ${access_secret}"
           echo "************** First tipi connect"
           tipi connect
           echo "************** Second tipi connect"
