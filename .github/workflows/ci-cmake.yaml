@@ -46,6 +46,7 @@ jobs:
       contents: write
     env:
       PreferredToolArchitecture: x64
+      TIPI_DISTRO_MODE: all
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,6 +78,9 @@ jobs:
     needs: draft-release
     permissions:
       contents: write
+    env:
+      PreferredToolArchitecture: x64
+      TIPI_DISTRO_MODE: all
     steps:
       - uses: actions/checkout@v4
         with:
