@@ -10,6 +10,9 @@ env:
   version_in_development: v0.0.17
   TIPI_CACHE_FORCE_ENABLE: ON
   CMAKE_TIPI_PROVIDER_ENABLE: ON
+  TIPI_ACCESS_TOKEN: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_ACCESS_TOKEN }}
+  TIPI_REFRESH_TOKEN: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_REFRESH_TOKEN }}
+  TIPI_VAULT_PASSPHRASE: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_VAULT_PASSPHRASE }}
 
 jobs:
   draft-release:
@@ -39,6 +42,8 @@ jobs:
     name: build-win
     runs-on: windows-2019
     needs: draft-release
+    permissions:
+      contents: write
     env:
       PreferredToolArchitecture: x64
     steps:
@@ -52,6 +57,7 @@ jobs:
           ./install_for_windows.ps1
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
           ./rustup-init.exe -q -y
+          tipi connect
           tipi . -t windows-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
           # Compress-Archive -Path .\build\windows-cxx17\bin\release\elfshaker_executable.exe -DestinationPath ./elfshaker-win.zip
       - name: Upload elfshaker package
@@ -69,6 +75,8 @@ jobs:
     name: build-macos
     runs-on: macos-latest
     needs: draft-release
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -82,6 +90,7 @@ jobs:
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
           ./sh.rustup.sh -q -y
+          tipi connect
           tipi . -t macos-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
           chmod +x ./build/macos-cxx17/elfshaker_executable
           zip -j elfshaker-macos.zip ./build/macos-cxx17/elfshaker_executable 
@@ -98,10 +107,12 @@ jobs:
 
   build-linux:
     name: build-linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     container: 
       image: tipibuild/tipi-ubuntu:latest
     needs: draft-release
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,6 +126,8 @@ jobs:
           chmod +x ./sh.rustup.sh
           ./sh.rustup.sh -q -y --no-modify-path
           export PATH="$HOME/.cargo/bin:$PATH"
+
+          tipi connect
           tipi . -t linux-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
           chmod +x ./build/linux-cxx17/bin/elfshaker_executable
           zip -j elfshaker-linux.zip ./build/linux-cxx17/bin/elfshaker_executable
