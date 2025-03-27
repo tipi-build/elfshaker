@@ -125,10 +125,15 @@ jobs:
           fetch-depth: 0
       - name: install and build 
         run: |
+          echo "************** First tipi connect"
           tipi connect
+          echo "************** Second tipi connect"
           tipi connect
+          echo "************** Third tipi connect"
           tipi connect
+          echo "************** Fourth tipi connect"
           tipi connect
+          echo "************** ALL tipi connect done"
           export HOME="/home/tipi"
           sudo apt update && sudo apt install zip -y
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
