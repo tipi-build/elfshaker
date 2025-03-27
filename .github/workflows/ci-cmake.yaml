@@ -13,6 +13,7 @@ env:
   TIPI_ACCESS_TOKEN: "${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_ACCESS_TOKEN }}"
   TIPI_REFRESH_TOKEN: "${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_REFRESH_TOKEN }}"
   TIPI_VAULT_PASSPHRASE: "${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_VAULT_PASSPHRASE }}"
+  VERBOSE: 1
 
 jobs:
   draft-release:
@@ -38,76 +39,76 @@ jobs:
           draft: true
           prerelease: true 
 
-  build-win:
-    name: build-win
-    runs-on: windows-2019
-    needs: draft-release
-    permissions:
-      contents: write
-    env:
-      PreferredToolArchitecture: x64
-      TIPI_DISTRO_MODE: all
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 0
-      - name: install and build 
-        run: |
-          Invoke-WebRequest -Uri https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_windows.ps1 -OutFile install_for_windows.ps1 
-          ./install_for_windows.ps1
-          Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
-          ./rustup-init.exe -q -y
-          tipi connect
-          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --test all --use-cmakelists
-          # Compress-Archive -Path .\build\windows-cxx17\bin\release\elfshaker_executable.exe -DestinationPath ./elfshaker-win.zip
-      - name: Upload elfshaker package
-        id: upload-tipi-elfshaker-package 
-        uses: actions/upload-release-asset@v1
-        env:
-           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{needs.draft-release.outputs.upload_url}}
-          asset_path: ./elfshaker-win.zip
-          asset_name: elfshaker-win.zip
-          asset_content_type: application/zip
-
-  build-macos:
-    name: build-macos
-    runs-on: macos-latest
-    needs: draft-release
-    permissions:
-      contents: write
-    env:
-      PreferredToolArchitecture: x64
-      TIPI_DISTRO_MODE: all
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 0
-      - name: install and build 
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_macos_linux.sh --output ./install_for_macos_linux.sh
-          chmod +x ./install_for_macos_linux.sh
-          ./install_for_macos_linux.sh
-          curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
-          chmod +x ./sh.rustup.sh
-          ./sh.rustup.sh -q -y
-          tipi connect
-          tipi . -t macos-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
-          chmod +x ./build/macos-cxx17/elfshaker_executable
-          zip -j elfshaker-macos.zip ./build/macos-cxx17/elfshaker_executable 
-      - name: Upload elfshaker package
-        id: upload-tipi-elfshaker-package 
-        uses: actions/upload-release-asset@v1
-        env:
-           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{needs.draft-release.outputs.upload_url}}
-          asset_path: ./elfshaker-macos.zip
-          asset_name: elfshaker-macos.zip
-          asset_content_type: application/zip
+#  build-win:
+#    name: build-win
+#    runs-on: windows-2019
+#    needs: draft-release
+#    permissions:
+#      contents: write
+#    env:
+#      PreferredToolArchitecture: x64
+#      TIPI_DISTRO_MODE: all
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: true
+#          fetch-depth: 0
+#      - name: install and build 
+#        run: |
+#          Invoke-WebRequest -Uri https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_windows.ps1 -OutFile install_for_windows.ps1 
+#          ./install_for_windows.ps1
+#          Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
+#          ./rustup-init.exe -q -y
+#          tipi connect
+#          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --test all --use-cmakelists
+#          # Compress-Archive -Path .\build\windows-cxx17\bin\release\elfshaker_executable.exe -DestinationPath ./elfshaker-win.zip
+#      - name: Upload elfshaker package
+#        id: upload-tipi-elfshaker-package 
+#        uses: actions/upload-release-asset@v1
+#        env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{needs.draft-release.outputs.upload_url}}
+#          asset_path: ./elfshaker-win.zip
+#          asset_name: elfshaker-win.zip
+#          asset_content_type: application/zip
+#
+#  build-macos:
+#    name: build-macos
+#    runs-on: macos-latest
+#    needs: draft-release
+#    permissions:
+#      contents: write
+#    env:
+#      PreferredToolArchitecture: x64
+#      TIPI_DISTRO_MODE: all
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: true
+#          fetch-depth: 0
+#      - name: install and build 
+#        run: |
+#          curl -fsSL https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_macos_linux.sh --output ./install_for_macos_linux.sh
+#          chmod +x ./install_for_macos_linux.sh
+#          ./install_for_macos_linux.sh
+#          curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
+#          chmod +x ./sh.rustup.sh
+#          ./sh.rustup.sh -q -y
+#          tipi connect
+#          tipi . -t macos-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
+#          chmod +x ./build/macos-cxx17/elfshaker_executable
+#          zip -j elfshaker-macos.zip ./build/macos-cxx17/elfshaker_executable 
+#      - name: Upload elfshaker package
+#        id: upload-tipi-elfshaker-package 
+#        uses: actions/upload-release-asset@v1
+#        env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{needs.draft-release.outputs.upload_url}}
+#          asset_path: ./elfshaker-macos.zip
+#          asset_name: elfshaker-macos.zip
+#          asset_content_type: application/zip
 
   build-linux:
     name: build-linux
@@ -124,6 +125,7 @@ jobs:
           fetch-depth: 0
       - name: install and build 
         run: |
+          tipi connect
           export HOME="/home/tipi"
           sudo apt update && sudo apt install zip -y
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
@@ -131,8 +133,7 @@ jobs:
           ./sh.rustup.sh -q -y --no-modify-path
           export PATH="$HOME/.cargo/bin:$PATH"
 
-          tipi connect
-          tipi . -t linux-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
+          tipi . -t linux-cxx17 --dont-upgrade -vvv --test all --use-cmakelists
           chmod +x ./build/linux-cxx17/bin/elfshaker_executable
           zip -j elfshaker-linux.zip ./build/linux-cxx17/bin/elfshaker_executable
       - name: Upload elfshaker package
