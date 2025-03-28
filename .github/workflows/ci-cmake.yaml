@@ -59,7 +59,7 @@ jobs:
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
           ./rustup-init.exe -q -y
           tipi connect
-          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --test all --use-cmakelists
+          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists
           # Compress-Archive -Path .\build\windows-cxx17\bin\release\elfshaker_executable.exe -DestinationPath ./elfshaker-win.zip
       - name: Upload elfshaker package
         id: upload-tipi-elfshaker-package 
@@ -71,6 +71,9 @@ jobs:
           asset_path: ./elfshaker-win.zip
           asset_name: elfshaker-win.zip
           asset_content_type: application/zip
+      - name: run tests 
+        run: |
+          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all
 
   build-macos:
     name: build-macos
@@ -97,7 +100,7 @@ jobs:
           rustup toolchain install stable-x86_64-apple-darwin
           rustup default stable-x86_64-apple-darwin
           tipi connect
-          tipi . -t macos-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists
           chmod +x ./build/macos-cxx17/elfshaker_executable
           zip -j elfshaker-macos.zip ./build/macos-cxx17/elfshaker_executable 
       - name: Upload elfshaker package
@@ -110,6 +113,9 @@ jobs:
           asset_path: ./elfshaker-macos.zip
           asset_name: elfshaker-macos.zip
           asset_content_type: application/zip
+      - name: run tests 
+        run: |
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists --test all
 
   build-linux:
     name: build-linux
@@ -135,7 +141,7 @@ jobs:
           ./sh.rustup.sh -q -y --no-modify-path
           export PATH="$HOME/.cargo/bin:$PATH"
 
-          tipi . -t linux-cxx17 --dont-upgrade -vvv --test all --use-cmakelists
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists
           chmod +x ./build/linux-cxx17/bin/elfshaker_executable
           zip -j elfshaker-linux.zip ./build/linux-cxx17/bin/elfshaker_executable
       - name: Upload elfshaker package
@@ -148,4 +154,7 @@ jobs:
           asset_path: ./elfshaker-linux.zip
           asset_name: elfshaker-linux.zip
           asset_content_type: application/zip
-
+      - name: run tests
+        run: |
+          export HOME="/home/tipi"
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists --test all
