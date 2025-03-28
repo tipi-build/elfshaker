@@ -97,23 +97,10 @@ jobs:
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
 
-          echo "/Users/runner/.rustup/settings.toml : "
-          cat /Users/runner/.rustup/settings.toml
-          echo " - END "
-          rm /Users/runner/.rustup/settings.toml
           tipi run ./sh.rustup.sh -q -y --default-host x86_64-apple-darwin --default-toolchain stable-x86_64-apple-darwin
-          tipi run rustup toolchain list
-          #tipi run rustup toolchain install stable-x86_64-apple-darwin
-          #tipi run rustup target install x86_64-apple-darwin
-          #tipi run rustup target add x86_64-apple-darwin
-          #tipi run rustup default stable-x86_64-apple-darwin
-          #tipi run rustup toolchain list
-          echo "/Users/runner/.rustup/settings.toml : "
-          cat /Users/runner/.rustup/settings.toml
-          echo " - END "
           tipi connect
           tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists
-          chmod +x ./build/macos-cxx17/elfshaker_executable
+          chmod +x ./build/macos-cxx17/bin/elfshaker_executable
           zip -j elfshaker-macos.zip ./build/macos-cxx17/bin/elfshaker_executable 
       - name: Upload elfshaker package
         id: upload-tipi-elfshaker-package 
