@@ -73,7 +73,7 @@ jobs:
           asset_content_type: application/zip
       - name: run tests 
         run: |
-          C:\Users\runneradmin\AppData\Local\tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all
+          C:\Users\runneradmin\AppData\Local\tipi\tipi.exe . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all
 
   build-macos:
     name: build-macos
@@ -96,13 +96,18 @@ jobs:
           ./install_for_macos_linux.sh
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
-          ./sh.rustup.sh -q -y
-          rustup toolchain install stable-x86_64-apple-darwin
-          rustup toolchain list
-          rustup target install x86_64-apple-darwin
-          rustup target add x86_64-apple-darwin
-          rustup default stable-x86_64-apple-darwin
-          rustup toolchain list
+
+          echo "/Users/runner/.rustup/settings.toml : "
+          cat /Users/runner/.rustup/settings.toml
+          echo " - END "
+
+          tipi run ./sh.rustup.sh -q -y
+          tipi run rustup toolchain install stable-x86_64-apple-darwin
+          tipi run rustup toolchain list
+          tipi run rustup target install x86_64-apple-darwin
+          tipi run rustup target add x86_64-apple-darwin
+          tipi run rustup default stable-x86_64-apple-darwin
+          tipi run rustup toolchain list
           tipi connect
           tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists
           chmod +x ./build/macos-cxx17/elfshaker_executable
