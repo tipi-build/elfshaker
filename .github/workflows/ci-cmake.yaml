@@ -100,7 +100,7 @@ jobs:
           echo "/Users/runner/.rustup/settings.toml : "
           cat /Users/runner/.rustup/settings.toml
           echo " - END "
-
+          rm /Users/runner/.rustup/settings.toml
           tipi run ./sh.rustup.sh -q -y
           tipi run rustup toolchain install stable-x86_64-apple-darwin
           tipi run rustup toolchain list
@@ -108,6 +108,9 @@ jobs:
           tipi run rustup target add x86_64-apple-darwin
           tipi run rustup default stable-x86_64-apple-darwin
           tipi run rustup toolchain list
+          echo "/Users/runner/.rustup/settings.toml : "
+          cat /Users/runner/.rustup/settings.toml
+          echo " - END "
           tipi connect
           tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists
           chmod +x ./build/macos-cxx17/elfshaker_executable
