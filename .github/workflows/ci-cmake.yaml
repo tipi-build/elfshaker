@@ -13,7 +13,6 @@ env:
   TIPI_ACCESS_TOKEN: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_ACCESS_TOKEN }}
   TIPI_REFRESH_TOKEN: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_REFRESH_TOKEN }}
   TIPI_VAULT_PASSPHRASE: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_VAULT_PASSPHRASE }}
-  VERBOSE: 1
 
 jobs:
   draft-release:
@@ -95,6 +94,8 @@ jobs:
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
           ./sh.rustup.sh -q -y
+          rustup toolchain install stable-x86_64-apple-darwin
+          rustup default stable-x86_64-apple-darwin
           tipi connect
           tipi . -t macos-cxx17 --dont-upgrade --verbose --test all --use-cmakelists
           chmod +x ./build/macos-cxx17/elfshaker_executable
