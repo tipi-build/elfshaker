@@ -1,10 +1,6 @@
 name: cmake-build
 # This workflow is  triggered on pushes, pull requests to the repository.
 on:
-  push:
-    branches:
-      - main
-      - develop
   pull_request:
 env:
   version_in_development: v0.0.17
