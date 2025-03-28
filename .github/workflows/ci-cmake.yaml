@@ -101,13 +101,13 @@ jobs:
           cat /Users/runner/.rustup/settings.toml
           echo " - END "
           rm /Users/runner/.rustup/settings.toml
-          tipi run ./sh.rustup.sh -q -y
-          tipi run rustup toolchain install stable-x86_64-apple-darwin
+          tipi run ./sh.rustup.sh -q -y --default-host x86_64-apple-darwin --default-toolchain stable-x86_64-apple-darwin
           tipi run rustup toolchain list
-          tipi run rustup target install x86_64-apple-darwin
-          tipi run rustup target add x86_64-apple-darwin
-          tipi run rustup default stable-x86_64-apple-darwin
-          tipi run rustup toolchain list
+          #tipi run rustup toolchain install stable-x86_64-apple-darwin
+          #tipi run rustup target install x86_64-apple-darwin
+          #tipi run rustup target add x86_64-apple-darwin
+          #tipi run rustup default stable-x86_64-apple-darwin
+          #tipi run rustup toolchain list
           echo "/Users/runner/.rustup/settings.toml : "
           cat /Users/runner/.rustup/settings.toml
           echo " - END "
