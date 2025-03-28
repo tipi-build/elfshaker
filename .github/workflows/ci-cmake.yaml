@@ -73,7 +73,7 @@ jobs:
           asset_content_type: application/zip
       - name: run tests 
         run: |
-          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all
+          C:\Users\runneradmin\AppData\Local\tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all
 
   build-macos:
     name: build-macos
