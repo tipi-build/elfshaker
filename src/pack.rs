@@ -3,12 +3,13 @@
 
 use clap::{App, Arg, ArgMatches};
 use log::info;
-use std::{error::Error, ops::ControlFlow, str::FromStr, path::PathBuf};
+use std::{error::Error, ops::ControlFlow, path::PathBuf, str::FromStr};
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
 use crate::{
     packidx::PackIndex,
-    repo::{PackId, PackOptions, SnapshotId, REPO_DIR}, utils::open_repo_with_separate_worktree_from,
+    repo::{PackId, PackOptions, SnapshotId, REPO_DIR},
+    utils::open_repo_with_separate_worktree_from,
 };
 
 pub const SUBCOMMAND: &str = "pack";
@@ -19,114 +20,122 @@ pub const SUBCOMMAND: &str = "pack";
 /// operations.
 const DEFAULT_COMPRESSION_WINDOW_LOG: u32 = 28;
 
-pub fn do_pack(data_dir_location: PathBuf, worktree_path: PathBuf, pack:&str, compression_level: i32, threads:u32, frames:u32, indexes : Option<Vec<PackId>>) -> Result<(), Box<dyn Error>> {
-  // Parse pack name
-  let pack = PackId::from_str(pack)?;
-  
-  // Parse --compression-level
-  let compression_level_range = zstd::compression_level_range();
-  if !compression_level_range.contains(&compression_level) {
-      return Err(format!(
-          "Invalid compression level {} (value must be between {} and {})!",
-          compression_level,
-          compression_level_range.start(),
-          compression_level_range.end(),
-      )
-      .into());
-  }
+pub fn do_pack(
+    data_dir_location: PathBuf,
+    worktree_path: PathBuf,
+    pack: &str,
+    compression_level: i32,
+    threads: u32,
+    frames: u32,
+    indexes: Option<Vec<PackId>>,
+) -> Result<(), Box<dyn Error>> {
+    // Parse pack name
+    let pack = PackId::from_str(pack)?;
 
-  // Parse --threads
-  let threads = match threads {
-      0 => {
-          let phys_cores = num_cpus::get_physical();
-          info!(
-              "-T|--threads=0: defaulting to number of physical cores (OS reports {} cores)",
-              phys_cores
-          );
-          phys_cores as u32
-      }
-      n => n,
-  };
+    // Parse --compression-level
+    let compression_level_range = zstd::compression_level_range();
+    if !compression_level_range.contains(&compression_level) {
+        return Err(format!(
+            "Invalid compression level {} (value must be between {} and {})!",
+            compression_level,
+            compression_level_range.start(),
+            compression_level_range.end(),
+        )
+        .into());
+    }
 
-  let mut repo = open_repo_with_separate_worktree_from(&data_dir_location, &worktree_path)?;
+    // Parse --threads
+    let threads = match threads {
+        0 => {
+            let phys_cores = num_cpus::get_physical();
+            info!(
+                "-T|--threads=0: defaulting to number of physical cores (OS reports {} cores)",
+                phys_cores
+            );
+            phys_cores as u32
+        }
+        n => n,
+    };
 
-  let indexes = indexes
-      .map(Result::Ok)
-      .unwrap_or_else(|| repo.loose_packs())?;
+    let mut repo = open_repo_with_separate_worktree_from(&data_dir_location, &worktree_path)?;
 
-  // No point in creating an empty pack.
-  if indexes.is_empty() {
-      return Err("There are no loose snapshots!".into());
-  }
+    let indexes = indexes
+        .map(Result::Ok)
+        .unwrap_or_else(|| repo.loose_packs())?;
 
-  let mut new_index = PackIndex::new();
+    // No point in creating an empty pack.
+    if indexes.is_empty() {
+        return Err("There are no loose snapshots!".into());
+    }
 
-  for pack_id in &indexes {
-      assert!(
-          repo.is_pack_loose(pack_id),
-          "packing non-loose indexes not yet supported"
-      );
-      let index = repo.load_index(pack_id)?;
-      eprintln!("Packing {} {}", pack_id, index.snapshot_tags().len());
-      index.for_each_snapshot(|snapshot, entries| {
-          if let Err(e) = new_index.push_snapshot(snapshot.to_owned(), entries.clone()) {
-              ControlFlow::Break(Result::<(), _>::Err(e))
-          } else {
-              ControlFlow::Continue(())
-          }
-      })?;
-  }
+    let mut new_index = PackIndex::new();
 
-  // Parse --frames
-  let frames = match frames {
-      0 => {
-          let loose_size = new_index.object_size_total();
-          let frames = get_frame_size_hint(loose_size);
-          info!("--frames=0: using suggested number of frames = {}", frames);
-          frames
-      }
-      n => n,
-  };
+    for pack_id in &indexes {
+        assert!(
+            repo.is_pack_loose(pack_id),
+            "packing non-loose indexes not yet supported"
+        );
+        let index = repo.load_index(pack_id)?;
+        eprintln!("Packing {} {}", pack_id, index.snapshot_tags().len());
+        index.for_each_snapshot(|snapshot, entries| {
+            if let Err(e) = new_index.push_snapshot(snapshot.to_owned(), entries.clone()) {
+                ControlFlow::Break(Result::<(), _>::Err(e))
+            } else {
+                ControlFlow::Continue(())
+            }
+        })?;
+    }
 
-  // Print progress every 5%
-  let reporter = create_percentage_print_reporter("Compressing objects", 5);
+    // Parse --frames
+    let frames = match frames {
+        0 => {
+            let loose_size = new_index.object_size_total();
+            let frames = get_frame_size_hint(loose_size);
+            info!("--frames=0: using suggested number of frames = {}", frames);
+            frames
+        }
+        n => n,
+    };
 
-  eprintln!("Compressing objects...");
-  // Create a pack using the ordered "loose" index.
-  repo.create_pack(
-      &pack,
-      new_index,
-      &PackOptions {
-          compression_level,
-          // We don't expose the windowLog option yet.
-          compression_window_log: DEFAULT_COMPRESSION_WINDOW_LOG,
-          num_workers: threads,
-          num_frames: frames,
-      },
-      &reporter,
-  )?;
+    // Print progress every 5%
+    let reporter = create_percentage_print_reporter("Compressing objects", 5);
 
-  if let (Some(head), _) = repo.read_head()? {
-      if indexes.iter().any(|pack_id| head.pack() == pack_id) {
-          info!("Updating HEAD to point to the newly-created pack...");
-          // The current HEAD was referencing a snapshot an index which has
-          // been packed. Update HEAD to point into the new pack.
-          let new_head = SnapshotId::new(pack, head.tag()).unwrap();
-          repo.update_head(&new_head)?;
-      }
-  }
+    eprintln!("Compressing objects...");
+    // Create a pack using the ordered "loose" index.
+    repo.create_pack(
+        &pack,
+        new_index,
+        &PackOptions {
+            compression_level,
+            // We don't expose the windowLog option yet.
+            compression_window_log: DEFAULT_COMPRESSION_WINDOW_LOG,
+            num_workers: threads,
+            num_frames: frames,
+        },
+        &reporter,
+    )?;
 
-  // TODO: New algo needs to take an exclusive repository lock and run GC.
-  // // Finally, delete the loose snapshots
-  // repo.remove_loose_all()?;
+    if let (Some(head), _) = repo.read_head()? {
+        if indexes.iter().any(|pack_id| head.pack() == pack_id) {
+            info!("Updating HEAD to point to the newly-created pack...");
+            // The current HEAD was referencing a snapshot an index which has
+            // been packed. Update HEAD to point into the new pack.
+            let new_head = SnapshotId::new(pack, head.tag()).unwrap();
+            repo.update_head(&new_head)?;
+        }
+    }
 
-  Ok(())
+    // TODO: New algo needs to take an exclusive repository lock and run GC.
+    // // Finally, delete the loose snapshots
+    // repo.remove_loose_all()?;
+
+    Ok(())
 }
 
 pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     // Parse pack name
     let pack = matches.value_of("pack").unwrap();
-    let indexes  = matches
+    let indexes = matches
         .values_of("indexes")
         .map(|opts| {
             opts.into_iter()
@@ -144,8 +153,16 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     // Parse --frames
     let frames: u32 = matches.value_of("frames").unwrap().parse()?;
 
-    do_pack(std::env::current_dir()?.join(REPO_DIR), std::env::current_dir()?, pack, compression_level, threads, frames, indexes);
-    
+    do_pack(
+        std::env::current_dir()?.join(REPO_DIR),
+        std::env::current_dir()?,
+        pack,
+        compression_level,
+        threads,
+        frames,
+        indexes,
+    );
+
     Ok(())
 }
 

@@ -44,36 +44,34 @@ use std::os::unix::fs::PermissionsExt;
 
 #[cxx::bridge(namespace = "elfshaker")]
 pub mod repo_bridge {
-  /// A struct specifying the the extract options.
-  #[derive(Clone, Debug)]
-  pub struct ExtractOptions {
-    /// Toggle checksum verification.
-    verify: bool,
-    /// Toggle reset mode on/off.
-    reset: bool,
-    /// Toggle checks guarding against overwriting user-modified files.
-    force: bool,
-    /// Number of decompression threads (this is an upper-limit).
-    num_workers: u32,
-  }
+    /// A struct specifying the the extract options.
+    #[derive(Clone, Debug)]
+    pub struct ExtractOptions {
+        /// Toggle checksum verification.
+        verify: bool,
+        /// Toggle reset mode on/off.
+        reset: bool,
+        /// Toggle checks guarding against overwriting user-modified files.
+        force: bool,
+        /// Number of decompression threads (this is an upper-limit).
+        num_workers: u32,
+    }
 
+    /// A struct specifying the the packing options.
+    #[derive(Clone, Debug)]
+    pub struct PackOptions {
+        pub compression_window_log: u32,
+        pub compression_level: i32,
+        pub num_workers: u32,
+        pub num_frames: u32,
+    }
 
-
-  /// A struct specifying the the packing options.
-  #[derive(Clone, Debug)]
-  pub struct PackOptions {
-      pub compression_window_log: u32,
-      pub compression_level: i32,
-      pub num_workers: u32,
-      pub num_frames: u32,
-  }
-
-  #[derive(Clone, Debug)]
-  pub struct ExtractResult {
-      pub modified_file_count: u32,
-      pub added_file_count: u32,
-      pub removed_file_count: u32,
-  }
+    #[derive(Clone, Debug)]
+    pub struct ExtractResult {
+        pub modified_file_count: u32,
+        pub added_file_count: u32,
+        pub removed_file_count: u32,
+    }
 }
 
 pub use repo_bridge::*;
@@ -163,7 +161,7 @@ impl Repository {
 
         Ok(Repository {
             path: path.as_ref().to_owned(),
-            data_dir, 
+            data_dir,
             progress_reporter_factory: Box::new(|_| ProgressReporter::dummy()),
         })
     }
@@ -325,7 +323,8 @@ impl Repository {
     }
 
     pub fn is_pack(&self, pack_id: &str) -> Result<Option<PackId>, IdError> {
-        let pack_index_path = self.data_dir
+        let pack_index_path = self
+            .data_dir
             .join(PACKS_DIR)
             .join(pack_id)
             .with_extension(PACK_INDEX_EXTENSION);
@@ -346,7 +345,8 @@ impl Repository {
             return false;
         }
 
-        let pack_index_path = self.data_dir
+        let pack_index_path = self
+            .data_dir
             .join(PACKS_DIR)
             .join(pack_name)
             .with_extension(PACK_INDEX_EXTENSION);
@@ -355,7 +355,8 @@ impl Repository {
 
     pub fn load_index(&self, pack_id: &PackId) -> Result<PackIndex, Error> {
         let pack_index_path = match pack_id {
-            PackId::Pack(name) => self.data_dir
+            PackId::Pack(name) => self
+                .data_dir
                 .join(PACKS_DIR)
                 .join(name)
                 .with_extension(PACK_INDEX_EXTENSION),
@@ -366,7 +367,8 @@ impl Repository {
 
     pub fn load_index_snapshots(&self, pack_id: &PackId) -> Result<Vec<String>, Error> {
         let pack_index_path = match pack_id {
-            PackId::Pack(name) => self.data_dir
+            PackId::Pack(name) => self
+                .data_dir
                 .join(PACKS_DIR)
                 .join(name)
                 .with_extension(PACK_INDEX_EXTENSION),
@@ -561,7 +563,8 @@ impl Repository {
         I: Iterator<Item = P>,
         P: AsRef<Path>,
     {
-        let files = clean_file_list(self.data_dir(), self.path.as_ref(), files)?.collect::<Vec<_>>();
+        let files =
+            clean_file_list(self.data_dir(), self.path.as_ref(), files)?.collect::<Vec<_>>();
         info!("Computing checksums for {} files...", files.len());
 
         let temp_dir = self.temp_dir();
@@ -569,57 +572,58 @@ impl Repository {
 
         let threads = num_cpus::get();
         println!("There are so many num_cpus : {}", threads);
-        let pack_entries: Vec<FileEntry> = run_in_parallel(threads, files.into_iter(), |file_path| {
-            let actual_file_path:PathBuf = self.path.join(&file_path);
-            let worktree_relative_file_path =
-                Self::replace_back_to_slash(&file_path.as_os_str().to_str().unwrap().to_string());
-            println!("create_snapshot {}", worktree_relative_file_path);
+        let pack_entries: Vec<FileEntry> =
+            run_in_parallel(threads, files.into_iter(), |file_path| {
+                let actual_file_path: PathBuf = self.path.join(&file_path);
+                let worktree_relative_file_path = Self::replace_back_to_slash(
+                    &file_path.as_os_str().to_str().unwrap().to_string(),
+                );
 
-            let buf: Vec<u8>;
-            let mut checksum = [0u8; 20];
+                let buf: Vec<u8>;
+                let mut checksum = [0u8; 20];
 
-            //let path = Path::new(&file_path);
-            let is_symlink_file = Path::new(&worktree_relative_file_path).is_symlink();
-            let metadata;
-            let symlink_target;
-            if is_symlink_file {
-                buf = Self::create_vec_u8_from_string(worktree_relative_file_path.clone());
-                metadata = fs::symlink_metadata(&actual_file_path).unwrap();
-                symlink_target = fs::read_link(&actual_file_path)?;
-            } else {
-                buf = fs::read(&actual_file_path)?;
-                metadata = fs::metadata(&actual_file_path).unwrap();
-                symlink_target = Path::new("").to_path_buf();
-            }
+                //let path = Path::new(&file_path);
+                let is_symlink_file = Path::new(&worktree_relative_file_path).is_symlink();
+                let metadata;
+                let symlink_target;
+                if is_symlink_file {
+                    buf = Self::create_vec_u8_from_string(worktree_relative_file_path.clone());
+                    metadata = fs::symlink_metadata(&actual_file_path).unwrap();
+                    symlink_target = fs::read_link(&actual_file_path)?;
+                } else {
+                    buf = fs::read(&actual_file_path)?;
+                    metadata = fs::metadata(&actual_file_path).unwrap();
+                    symlink_target = Path::new("").to_path_buf();
+                }
 
-            let mut hasher = Sha1::new();
-            hasher.input(&buf);
-            hasher.result(&mut checksum);
-            self.write_loose_object(&*buf, &temp_dir, &checksum)?;
+                let mut hasher = Sha1::new();
+                hasher.input(&buf);
+                hasher.result(&mut checksum);
+                self.write_loose_object(&*buf, &temp_dir, &checksum)?;
 
-            let file_mtime_info = FileTime::from_last_modification_time(&metadata);
+                let file_mtime_info = FileTime::from_last_modification_time(&metadata);
 
-            Ok(FileEntry::new(
-                worktree_relative_file_path.into(),
-                checksum,
-                ObjectMetadata {
-                    offset: LOOSE_OBJECT_OFFSET,
-                    size: buf.len() as u64,
-                },
-                FileMetadata {
-                    last_modified: file_mtime_info.unix_seconds(),
-                    last_modified_nanos: file_mtime_info.nanoseconds(),
-                    #[cfg(target_family = "unix")]
-                    bits_mods: metadata.permissions().mode(),
-                    #[cfg(target_family = "windows")]
-                    bits_mods: 0o777,
-                    is_symlink_file,
-                    symlink_target,
-                },
-            ))
-        })
-        .into_iter()
-        .collect::<io::Result<Vec<_>>>()?;
+                Ok(FileEntry::new(
+                    worktree_relative_file_path.into(),
+                    checksum,
+                    ObjectMetadata {
+                        offset: LOOSE_OBJECT_OFFSET,
+                        size: buf.len() as u64,
+                    },
+                    FileMetadata {
+                        last_modified: file_mtime_info.unix_seconds(),
+                        last_modified_nanos: file_mtime_info.nanoseconds(),
+                        #[cfg(target_family = "unix")]
+                        bits_mods: metadata.permissions().mode(),
+                        #[cfg(target_family = "windows")]
+                        bits_mods: 0o777,
+                        is_symlink_file,
+                        symlink_target,
+                    },
+                ))
+            })
+            .into_iter()
+            .collect::<io::Result<Vec<_>>>()?;
 
         let mut index = PackIndex::new();
         index.push_snapshot(snapshot.tag().to_owned(), pack_entries)?;
@@ -705,7 +709,7 @@ impl Repository {
 
         let mut frames = vec![];
         let mut frame_bufs = vec![];
-        
+
         println!("There are opts.num_workers {}", opts.num_workers);
         let frame_results = run_in_parallel(
             opts.num_workers as usize,
@@ -1087,7 +1091,7 @@ fn clean_file_list<P>(
 ) -> io::Result<impl Iterator<Item = PathBuf>>
 where
     P: AsRef<Path>,
-{   
+{
     let files = files
         .flat_map(|p| {
             if p.as_ref().is_relative() {
@@ -1151,7 +1155,7 @@ mod tests {
         let path: PathBuf = repo.loose_object_path(&checksum);
         let path_string = path.to_str().unwrap();
         #[cfg(target_family = "windows")]
-        let path_string = path_string.replace(r"\", "/"); 
+        let path_string = path_string.replace(r"\", "/");
         assert_eq!(
             format!(
                 "/repo/{}/{}/fa/f0/deadbeefbadc0de0faf0deadbeefbadc0de0",
@@ -1160,13 +1164,13 @@ mod tests {
             ),
             path_string,
         );
-    } 
+    }
 
     #[test]
     fn data_dir_detected() {
         let data_dir = Path::new(repo::REPO_DIR);
         let path = format!("{}", repo::REPO_DIR);
-        
+
         assert!(is_elfshaker_data_path(data_dir, path.as_ref()));
     }
     #[test]

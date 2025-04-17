@@ -7,11 +7,19 @@ use std::{error::Error, ffi::OsStr, fs, io, path::PathBuf};
 use walkdir::WalkDir;
 
 use super::utils::open_repo_from;
-use crate::{repo::{self, PackId, Repository, SnapshotId}, utils::open_repo_with_separate_worktree_from};
+use crate::{
+    repo::{self, PackId, Repository, SnapshotId},
+    utils::open_repo_with_separate_worktree_from,
+};
 
 pub const SUBCOMMAND: &str = "store";
 
-pub fn do_store(elfshaker_repo_dir: PathBuf, worktree_dir: PathBuf, snapshot: &str, files: &Vec<PathBuf>) -> Result<(), Box<dyn Error>> {
+pub fn do_store(
+    elfshaker_repo_dir: PathBuf,
+    worktree_dir: PathBuf,
+    snapshot: &str,
+    files: &Vec<PathBuf>,
+) -> Result<(), Box<dyn Error>> {
     // Use snapshot name as pack name.
     let pack_id = PathBuf::from(format!("loose/{}", snapshot));
     let pack_id = PackId::Pack(pack_id.to_str().unwrap().to_owned());
@@ -45,7 +53,12 @@ pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         _ => find_files(),
     };
 
-    do_store(std::env::current_dir()?.join(repo::REPO_DIR), std::env::current_dir()?, &snapshot, &files)
+    do_store(
+        std::env::current_dir()?.join(repo::REPO_DIR),
+        std::env::current_dir()?,
+        &snapshot,
+        &files,
+    )
 }
 
 pub fn get_app() -> App<'static, 'static> {

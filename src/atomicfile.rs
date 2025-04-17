@@ -257,7 +257,7 @@ mod tests {
             Ok(_) => 1,
             #[cfg(target_os = "macos")]
             Err(e) if e.kind() == io::ErrorKind::NotFound => -1,
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock=> -1,
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => -1,
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => -1,
             #[cfg(target_family = "windows")]
             Err(e) if e.kind() == io::ErrorKind::PermissionDenied => -1,

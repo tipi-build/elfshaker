@@ -1,13 +1,13 @@
 //! SPDX-License-Identifier: Apache-2.0
 //! Copyright (C) 2023 Tipi technologies or its affiliates and Contributors. All rights reserved.
 
-use clap::{App, Arg, ArgMatches};
-use crypto::{digest::Digest, sha1::Sha1};
+use crate::packidx::PackError;
 use crate::repo::{
     fs::{get_last_modified, open_file},
     Repository, SnapshotId, REPO_DIR,
 };
-use crate::packidx::PackError;
+use clap::{App, Arg, ArgMatches};
+use crypto::{digest::Digest, sha1::Sha1};
 use filetime::FileTime;
 use log::info;
 use std::{
@@ -20,27 +20,35 @@ use std::{
     sync::mpsc::channel,
 };
 
-use crate::repo::{Error as RepoError};
+use crate::repo::Error as RepoError;
 
-use super::utils::{create_percentage_print_reporter, open_repo_from_cwd, open_repo_with_separate_worktree_from};
+use super::utils::{
+    create_percentage_print_reporter, open_repo_from_cwd, open_repo_with_separate_worktree_from,
+};
 
 pub const SUBCOMMAND: &str = "status";
 
-pub fn do_status(elfshaker_repo_dir: PathBuf, worktree_dir: PathBuf, snapshot_or_pack:&str) -> Result<Vec<String>, Box<dyn Error>> {
-  let mut repo = open_repo_with_separate_worktree_from(&elfshaker_repo_dir, &worktree_dir)?;
+pub fn do_status(
+    elfshaker_repo_dir: PathBuf,
+    worktree_dir: PathBuf,
+    snapshot_or_pack: &str,
+) -> Result<Vec<String>, Box<dyn Error>> {
+    let mut repo = open_repo_with_separate_worktree_from(&elfshaker_repo_dir, &worktree_dir)?;
 
-  repo.set_progress_reporter(|msg| create_percentage_print_reporter(msg, 5));
+    repo.set_progress_reporter(|msg| create_percentage_print_reporter(msg, 5));
 
-  if let Some(pack_id) = repo.is_pack(snapshot_or_pack)?{
-    let index = repo.load_index_snapshots(&pack_id)?;
-    println!("Pick one of these snapshots inside this pack: {:#?}", index);
-    return Err(RepoError::PackError(PackError::SnapshotNotFound(snapshot_or_pack.to_string())))?;
-  }
+    if let Some(pack_id) = repo.is_pack(snapshot_or_pack)? {
+        let index = repo.load_index_snapshots(&pack_id)?;
+        println!("Pick one of these snapshots inside this pack: {:#?}", index);
+        return Err(RepoError::PackError(PackError::SnapshotNotFound(
+            snapshot_or_pack.to_string(),
+        )))?;
+    }
 
-  let snapshot = repo.find_snapshot(snapshot_or_pack)?;
-  let changed_files: Vec<String> = probe_snapshot_files(&repo, &snapshot)?;
+    let snapshot = repo.find_snapshot(snapshot_or_pack)?;
+    let changed_files: Vec<String> = probe_snapshot_files(&repo, &snapshot)?;
 
-  Ok(changed_files)
+    Ok(changed_files)
 }
 
 pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
@@ -116,9 +124,10 @@ fn probe_snapshot_files(
     let repo_worktree = repo.path().to_str().unwrap().to_string();
 
     #[cfg(target_family = "windows")]
-    let repo_datadir= Repository::replace_back_to_slash(repo.data_dir().to_owned().to_str().unwrap());
+    let repo_datadir =
+        Repository::replace_back_to_slash(repo.data_dir().to_owned().to_str().unwrap());
     #[cfg(not(target_family = "windows"))]
-    let repo_datadir= repo.data_dir().to_str().unwrap().to_string();
+    let repo_datadir = repo.data_dir().to_str().unwrap().to_string();
 
     pool.execute(move || {
         let base_dir = repo_worktree + "/";
@@ -159,7 +168,7 @@ fn probe_snapshot_files(
         .expect("failed to resolve snapshot"); // TODO: Temporary.
 
     for entry in idx.entries_from_handles(handles.iter())? {
-        let pathbuf= repo.path().join(&entry.path);
+        let pathbuf = repo.path().join(&entry.path);
         let path = pathbuf.as_path();
 
         let changed = if path.exists() == false {
@@ -239,7 +248,6 @@ fn probe_snapshot_files(
             unchanged_files.insert(path_string);
         }
     }
-
 
     let workspace_file_paths = workspace_files_receiver
         .recv()
