@@ -571,7 +571,6 @@ impl Repository {
         ensure_dir(&temp_dir)?;
 
         let threads = num_cpus::get();
-        println!("There are so many num_cpus : {}", threads);
         let pack_entries: Vec<FileEntry> =
             run_in_parallel(threads, files.into_iter(), |file_path| {
                 let actual_file_path: PathBuf = self.path.join(&file_path);
