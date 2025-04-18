@@ -582,7 +582,7 @@ impl Repository {
                 let mut checksum = [0u8; 20];
 
                 //let path = Path::new(&file_path);
-                let is_symlink_file = Path::new(&worktree_relative_file_path).is_symlink();
+                let is_symlink_file = Path::new(&actual_file_path).is_symlink();
                 let metadata;
                 let symlink_target;
                 if is_symlink_file {
