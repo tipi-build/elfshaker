@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.27.6)
 
 project(elfshaker VERSION "0.0.17")
 
-enable_testing()
+if (BUILD_TESTING)
+  enable_testing()
+endif()
 
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF CACHE BOOL "" FORCE)
@@ -49,12 +51,14 @@ find_package(cpp-pre_file CONFIG REQUIRED)
 
 set(include_install_dir "include")
 
-add_executable(test_cxxbridge tests/test_cxxbridge.cpp)
-target_link_libraries(test_cxxbridge PUBLIC elfshaker-cxxbridge cpp-pre_file::file Boost::filesystem Boost::included_unit_test_framework)
-if (CMAKE_SYSTEM_NAME MATCHES Darwin)
+if (BUILD_TESTING)
+  add_executable(test_cxxbridge tests/test_cxxbridge.cpp)
+  target_link_libraries(test_cxxbridge PUBLIC elfshaker-cxxbridge cpp-pre_file::file Boost::filesystem Boost::included_unit_test_framework)
+  if (CMAKE_SYSTEM_NAME MATCHES Darwin)
     target_link_libraries(test_cxxbridge PUBLIC "-framework Foundation")
+  endif()
+  add_test(NAME test_cxxbridge COMMAND $<TARGET_FILE:test_cxxbridge>) 
 endif()
-add_test(NAME test_cxxbridge COMMAND $<TARGET_FILE:test_cxxbridge>) 
 
 
 

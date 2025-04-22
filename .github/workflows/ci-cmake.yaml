@@ -55,7 +55,7 @@ jobs:
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
           ./rustup-init.exe -q -y
           tipi connect
-          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists
+          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
           mv .\build\vs-16-2019-win64-cxx17\bin\elfshaker_executable.exe .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe
           Compress-Archive -Path .\build\vs-16-2019-win64-cxx17\bin\elfshaker_executable.exe -DestinationPath ./elfshaker-win.zip
       - name: Upload elfshaker package
@@ -70,7 +70,7 @@ jobs:
           asset_content_type: application/zip
       - name: run tests 
         run: |
-          C:\Users\runneradmin\AppData\Local\tipi\tipi.exe . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all
+          C:\Users\runneradmin\AppData\Local\tipi\tipi.exe . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all -- -DBUILD_TESTING=ON
 
   build-macos:
     name: build-macos
@@ -96,7 +96,7 @@ jobs:
 
           tipi run ./sh.rustup.sh -q -y --default-host x86_64-apple-darwin --default-toolchain stable-x86_64-apple-darwin
           tipi connect
-          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
           chmod +x ./build/macos-cxx17/bin/elfshaker_executable
           mv ./build/macos-cxx17/bin/elfshaker_executable ./build/macos-cxx17/bin/elfshaker
           zip -j elfshaker-macos.zip ./build/macos-cxx17/bin/elfshaker
@@ -112,7 +112,7 @@ jobs:
           asset_content_type: application/zip
       - name: run tests 
         run: |
-          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists --test all
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists --test all -- -DBUILD_TESTING=ON
 
   build-linux:
     name: build-linux
@@ -138,7 +138,7 @@ jobs:
           ./sh.rustup.sh -q -y --no-modify-path
           export PATH="$HOME/.cargo/bin:$PATH"
 
-          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
           chmod +x ./build/linux-cxx17/bin/elfshaker_executable
           mv ./build/linux-cxx17/bin/elfshaker_executable ./build/linux-cxx17/bin/elfshaker
           zip -j elfshaker-linux.zip ./build/linux-cxx17/bin/elfshaker
@@ -155,4 +155,4 @@ jobs:
       - name: run tests
         run: |
           export HOME="/home/tipi"
-          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists --test all
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists --test all -- -DBUILD_TESTING=ON
