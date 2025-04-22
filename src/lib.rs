@@ -22,6 +22,8 @@ pub mod update;
 pub mod utils;
 
 use cxx::{CxxString, CxxVector};
+use log::Logger;
+use std::sync::LazyLock;
 use repo::ExtractResult;
 use std::error::Error;
 use std::path::PathBuf;
@@ -110,10 +112,18 @@ mod bridge {
     }
 }
 
+static LAZY_LOGGER : LazyLock<i32> = LazyLock::new(|| init_logger());
+
+fn init_logger() -> i32 {
+    Logger::init(::log::Level::Info);
+    return 1;
+}
+
 fn init_elfshaker_store(
     elfshaker_repo_dir: &CxxString,
     worktree_dir: &CxxString,
 ) -> Result<(), Box<dyn Error>> {
+    let _ = LAZY_LOGGER.clone();
     let result = store::do_store(
         PathBuf::from(elfshaker_repo_dir.to_string()),
         PathBuf::from(worktree_dir.to_string()),
@@ -129,6 +139,7 @@ fn extract(
     snapshot: &CxxString,
     opts: bridge::ExtractOptions,
 ) -> Result<ExtractResult, Box<dyn Error>> {
+    let _ = LAZY_LOGGER.clone();
     println!(
         "Options extracted {} {} {} {}",
         opts.verify(),
@@ -151,6 +162,7 @@ fn store(
     files_to_snapshot: &CxxVector<CxxString>,
     snapshot_name: &CxxString,
 ) -> Result<(), Box<dyn Error>> {
+    let _ = LAZY_LOGGER.clone();
     let files_to_snapshot_paths: Vec<PathBuf> = files_to_snapshot
         .iter()
         .map(|s| PathBuf::from(s.to_string()).to_owned())
@@ -175,6 +187,7 @@ fn pack(
     threads: u32,
     frames: u32,
 ) -> Result<(), Box<dyn Error>> {
+    let _ = LAZY_LOGGER.clone();
     pack::do_pack(
         std::path::PathBuf::from(elfshaker_repo_dir.to_string()),
         std::path::PathBuf::from(worktree_dir.to_string()),
@@ -191,6 +204,7 @@ fn status(
     worktree_dir: &CxxString,
     pack_snapshot_to_check_status_against: &CxxString,
 ) -> Result<Vec<String>, Box<dyn Error>> {
+    let _ = LAZY_LOGGER.clone();
     status::do_status(
         std::path::PathBuf::from(elfshaker_repo_dir.to_string()),
         std::path::PathBuf::from(worktree_dir.to_string()),
