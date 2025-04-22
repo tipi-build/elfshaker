@@ -57,7 +57,7 @@ jobs:
           tipi connect
           tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
           mv .\build\vs-16-2019-win64-cxx17\bin\elfshaker_executable.exe .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe
-          Compress-Archive -Path .\build\vs-16-2019-win64-cxx17\bin\elfshaker_executable.exe -DestinationPath ./elfshaker-win.zip
+          Compress-Archive -Path .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe -DestinationPath ./elfshaker-win.zip
       - name: Upload elfshaker package
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
