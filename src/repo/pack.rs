@@ -28,7 +28,7 @@ use super::error::Error;
 use super::fs::{create_file, open_file};
 use super::REPO_DIR;
 use super::{algo::run_in_parallel, constants::DOT_PACK_INDEX_EXTENSION};
-use crate::packidx::{FileEntry, FileMetadata, ObjectChecksum, PackError};
+use crate::{pack, packidx::{FileEntry, FileMetadata, ObjectChecksum, PackError}};
 use crate::{log::measure_ok, packidx::ObjectMetadata};
 
 #[cfg(target_family = "unix")]
@@ -43,8 +43,16 @@ use std::os::unix::fs::symlink;
 use crate::atomicfile::AtomicCreateFile;
 use fs2::FileExt;
 
-/// Pack and snapshots IDs can contain latin letter, digits or the following characters.
-const EXTRA_ID_CHARS: &[char] = &['-', '_', '/'];
+/// Pack and snapshots IDs can contain any char except:
+/// - Windows compat:  <>:"|?* and control characters (ASCII 0–31)
+/// - Linux / MacOS:   \0
+const FOBIDDEN_ID_CHARS: &[char] = &['<', '>', ':', '"', '|', '?', '*'];
+
+fn is_valid_id_str(path: &str) -> bool {
+    return path.chars().all(|c| {
+        !FOBIDDEN_ID_CHARS.contains(&c) && !c.is_control()
+    });
+}
 
 #[derive(Debug)]
 /// Error used when parsing a [`SnapshotId`] fails.
@@ -90,8 +98,7 @@ impl PackId {
     }
 
     fn is_valid(s: &str) -> bool {
-        s.chars()
-            .all(|c| c.is_ascii_alphanumeric() || EXTRA_ID_CHARS.contains(&c))
+        is_valid_id_str(s)
     }
 }
 
@@ -142,8 +149,7 @@ impl SnapshotId {
     }
 
     fn is_valid(tag: &str) -> bool {
-        tag.chars()
-            .all(|c| c.is_ascii_alphanumeric() || EXTRA_ID_CHARS.contains(&c))
+        is_valid_id_str(tag)
     }
 }
 
@@ -313,12 +319,8 @@ impl Pack {
         let mut packs_data = repo.as_ref().join(&REPO_DIR);
         packs_data.push(PACKS_DIR);
 
-        let mut pack_index_path = packs_data.join(pack_name);
-        pack_index_path.set_extension(PACK_INDEX_EXTENSION);
-
-        let mut pack_path = packs_data.join(pack_name);
-        pack_path.set_extension(PACK_EXTENSION);
-
+        let pack_index_path = packs_data.join(format!("{}.{}", pack_name, PACK_INDEX_EXTENSION));
+        let pack_path = packs_data.join(format!("{}.{}", pack_name, PACK_EXTENSION));
         info!("Opening pack file {:?}...", pack_path);
         let (file_size, header, frame_readers) =
             Self::open_pack(&pack_path).or_else(|_| Self::open_pack_legacy(&pack_path))?;
@@ -799,6 +801,13 @@ mod tests {
         }
     }
 
+    fn test_get_ascii_control_chars() -> Vec<char> {
+        (0x00u8..=0x1F)
+            .chain(std::iter::once(0x7F))
+            .map(|b| b as char)
+            .collect()
+    }
+
     #[test]
     fn pack_id_validation_works() {
         // VALID
@@ -808,12 +817,33 @@ mod tests {
         assert!(PackId::is_valid("----"));
         assert!(PackId::is_valid("ABCD-132_TAG"));
         // NOT VALID
-        // spaces
-        assert!(!PackId::is_valid("Some Text"));
+        //make sure the windows control path char validation works
+        assert!(!PackId::is_valid("Some<Text"));
+        assert!(!PackId::is_valid("Some>Text"));
+        assert!(!PackId::is_valid("Some<Text"));
+        assert!(!PackId::is_valid("Some>Text"));
+        assert!(!PackId::is_valid("Some:Text"));
+        assert!(!PackId::is_valid("Some\"Text"));
+        assert!(!PackId::is_valid("Some|Text"));
+        assert!(!PackId::is_valid("Some?Text"));
+        assert!(!PackId::is_valid("Some*Text")); 
+        // ascii control chars 0 - 31       
+        for c in test_get_ascii_control_chars() {
+            let s = format!("Control{char}Char", char = c);
+            assert!(
+                !PackId::is_valid(&s),
+                "Control character U+{:04X} should be invalid",
+                c as u32
+            );
+        }
+        // SPACE shoule be valid again
+        assert!(PackId::is_valid("Space\u{0020}In Text"));
+        assert!(!PackId::is_valid("Control\u{007F}")); // DEL is control char again
         // non-latin alphabets
-        assert!(!PackId::is_valid("това-е-тест"));
+        assert!(PackId::is_valid("това-е-тест"));
+        assert!(PackId::is_valid("emoji_💾.extension"));
         // non-letter symbols other than - and _
-        assert!(!PackId::is_valid("QWERTY-^!$^%^@!#"));
+        assert!(PackId::is_valid("QWERTY-^!$^%^@!#"));
     }
     #[test]
     fn snapshot_tag_validation_works() {
@@ -824,12 +854,23 @@ mod tests {
         assert!(SnapshotId::is_valid("----"));
         assert!(SnapshotId::is_valid("ABCD-132_TAG"));
         // NOT VALID
-        // spaces
-        assert!(!SnapshotId::is_valid("Some Text"));
+        // ascii control chars 0 - 31       
+        for c in test_get_ascii_control_chars() {
+            let s = format!("Control{char}Char", char = c);
+            assert!(
+                !SnapshotId::is_valid(&s),
+                "Control character U+{:04X} should be invalid",
+                c as u32
+            );
+        }
+        // SPACE shoule be valid again
+        assert!(SnapshotId::is_valid("Space\u{0020}In Text"));
+        assert!(!SnapshotId::is_valid("Control\u{007F}")); // DEL is control char again
         // non-latin alphabets
-        assert!(!SnapshotId::is_valid("това-е-тест"));
+        assert!(SnapshotId::is_valid("това-е-тест"));
+        assert!(SnapshotId::is_valid("emoji_💾.extension"));
         // non-letter symbols other than - and _
-        assert!(!SnapshotId::is_valid("QWERTY-^!$^%^@!#"));
+        assert!(SnapshotId::is_valid("QWERTY-^!$^%^@!#"));
     }
     #[test]
     fn assign_to_frames_single_works() {

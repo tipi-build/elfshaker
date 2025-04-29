@@ -323,11 +323,11 @@ impl Repository {
     }
 
     pub fn is_pack(&self, pack_id: &str) -> Result<Option<PackId>, IdError> {
+        let pack_index_file_name = format!("{pack_id}.{}", PACK_INDEX_EXTENSION);
         let pack_index_path = self
             .data_dir
             .join(PACKS_DIR)
-            .join(pack_id)
-            .with_extension(PACK_INDEX_EXTENSION);
+            .join(pack_index_file_name);
         pack_index_path
             .exists()
             .then(|| PackId::from_str(pack_id))
@@ -345,21 +345,23 @@ impl Repository {
             return false;
         }
 
+        let pack_index_file_name = format!("{pack_name}.{}", PACK_INDEX_EXTENSION);
         let pack_index_path = self
             .data_dir
             .join(PACKS_DIR)
-            .join(pack_name)
-            .with_extension(PACK_INDEX_EXTENSION);
+            .join(pack_index_file_name);
         pack_index_path.exists()
     }
 
     pub fn load_index(&self, pack_id: &PackId) -> Result<PackIndex, Error> {
         let pack_index_path = match pack_id {
-            PackId::Pack(name) => self
-                .data_dir
-                .join(PACKS_DIR)
-                .join(name)
-                .with_extension(PACK_INDEX_EXTENSION),
+            PackId::Pack(name) =>{
+                let file_name = format!("{name}.{}", PACK_INDEX_EXTENSION);
+                self
+                    .data_dir
+                    .join(PACKS_DIR)
+                    .join(file_name)
+            }
         };
         info!("Load index {} {}", pack_id, pack_index_path.display());
         Ok(PackIndex::load(pack_index_path)?)
@@ -367,11 +369,13 @@ impl Repository {
 
     pub fn load_index_snapshots(&self, pack_id: &PackId) -> Result<Vec<String>, Error> {
         let pack_index_path = match pack_id {
-            PackId::Pack(name) => self
-                .data_dir
-                .join(PACKS_DIR)
-                .join(name)
-                .with_extension(PACK_INDEX_EXTENSION),
+            PackId::Pack(name) => {
+                let file_name = format!("{name}.{}", PACK_INDEX_EXTENSION);
+                self
+                    .data_dir
+                    .join(PACKS_DIR)
+                    .join(file_name)
+            }
         };
         Ok(PackIndex::load_only_snapshots(pack_index_path)?)
     }
@@ -630,11 +634,10 @@ impl Repository {
         let loose_path = self.data_dir().join(PACKS_DIR).join(LOOSE_DIR);
         ensure_dir(&loose_path)?;
 
-        index.save(
-            &loose_path
-                .join(snapshot.tag())
-                .with_extension(PACK_INDEX_EXTENSION),
-        )?;
+        let index_path =  &loose_path
+            .join(format!("{}.{}", snapshot.tag(), PACK_INDEX_EXTENSION));
+
+        index.save(index_path)?;
 
         self.update_head(snapshot)?;
 
@@ -709,7 +712,6 @@ impl Repository {
         let mut frames = vec![];
         let mut frame_bufs = vec![];
 
-        println!("There are opts.num_workers {}", opts.num_workers);
         let frame_results = run_in_parallel(
             opts.num_workers as usize,
             object_partitions.into_iter(),
