@@ -140,13 +140,6 @@ fn extract(
     opts: bridge::ExtractOptions,
 ) -> Result<ExtractResult, Box<dyn Error>> {
     let _ = LAZY_LOGGER.clone();
-    println!(
-        "Options extracted {} {} {} {}",
-        opts.verify(),
-        opts.force(),
-        opts.reset,
-        opts.num_workers
-    );
     let result = extract::do_extract(
         std::path::PathBuf::from(elfshaker_repo_dir.to_string()),
         std::path::PathBuf::from(worktree_dir.to_string()),

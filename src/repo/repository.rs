@@ -712,7 +712,6 @@ impl Repository {
         let mut frames = vec![];
         let mut frame_bufs = vec![];
 
-        println!("There are opts.num_workers {}", opts.num_workers);
         let frame_results = run_in_parallel(
             opts.num_workers as usize,
             object_partitions.into_iter(),
