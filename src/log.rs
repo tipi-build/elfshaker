@@ -31,7 +31,13 @@ impl Logger {
     pub fn init(level: Level) {
         {
             let mut w = INIT_LOG_LEVEL.write().unwrap();
-            *w = level;
+            let mut lvl: Level = level;
+
+            if std::env::var("VERBOSE").is_ok_and(|val| val == "1") {
+                lvl = log::Level::Info
+            }
+
+            *w = lvl;
         }
         // Trigger the lazy initialisation
         let instance = &**LOGGER;

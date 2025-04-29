@@ -3,14 +3,14 @@ use std::error::Error;
 use clap::{App, Arg, ArgMatches};
 use log::info;
 
-use elfshaker::packidx::FileEntry;
-use elfshaker::repo::{ExtractOptions, PackId};
+use crate::packidx::FileEntry;
+use crate::repo::{ExtractOptions, PackId};
 
 use crate::utils::open_repo_from_cwd;
 
-pub(crate) const SUBCOMMAND: &str = "loosen";
+pub const SUBCOMMAND: &str = "loosen";
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let is_verify = matches.is_present("verify");
     let is_force = matches.is_present("force");
 
@@ -59,7 +59,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     App::new(SUBCOMMAND)
         .about("Can be used to loosen a pack.")
         .arg(

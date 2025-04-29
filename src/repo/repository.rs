@@ -33,6 +33,7 @@ use super::pack::{write_skippable_frame, Pack, PackFrame, PackHeader, PackId, Sn
 use super::remote;
 use crate::packidx::{FileEntry, FileMetadata, ObjectChecksum, PackError, PackIndex};
 use crate::progress::ProgressReporter;
+use crate::repo;
 use crate::{
     batch,
     packidx::{ObjectMetadata, LOOSE_OBJECT_OFFSET},
@@ -41,18 +42,39 @@ use crate::{
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::PermissionsExt;
 
-/// A struct specifying the the extract options.
-#[derive(Clone, Debug)]
-pub struct ExtractOptions {
-    /// Toggle checksum verification.
-    verify: bool,
-    /// Toggle reset mode on/off.
-    reset: bool,
-    /// Toggle checks guarding against overwriting user-modified files.
-    force: bool,
-    /// Number of decompression threads (this is an upper-limit).
-    num_workers: u32,
+#[cxx::bridge(namespace = "elfshaker")]
+pub mod repo_bridge {
+    /// A struct specifying the the extract options.
+    #[derive(Clone, Debug)]
+    pub struct ExtractOptions {
+        /// Toggle checksum verification.
+        verify: bool,
+        /// Toggle reset mode on/off.
+        reset: bool,
+        /// Toggle checks guarding against overwriting user-modified files.
+        force: bool,
+        /// Number of decompression threads (this is an upper-limit).
+        num_workers: u32,
+    }
+
+    /// A struct specifying the the packing options.
+    #[derive(Clone, Debug)]
+    pub struct PackOptions {
+        pub compression_window_log: u32,
+        pub compression_level: i32,
+        pub num_workers: u32,
+        pub num_frames: u32,
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct ExtractResult {
+        pub modified_file_count: u32,
+        pub added_file_count: u32,
+        pub removed_file_count: u32,
+    }
 }
+
+pub use repo_bridge::*;
 
 impl ExtractOptions {
     /// Toggle checksum verification.
@@ -104,26 +126,13 @@ impl Default for ExtractOptions {
     }
 }
 
-/// A struct specifying the the packing options.
-#[derive(Clone, Debug)]
-pub struct PackOptions {
-    pub compression_window_log: u32,
-    pub compression_level: i32,
-    pub num_workers: u32,
-    pub num_frames: u32,
-}
-
-#[derive(Clone, Debug)]
-pub struct ExtractResult {
-    pub modified_file_count: u32,
-    pub added_file_count: u32,
-    pub removed_file_count: u32,
-}
 /// Contains methods for interfacing with elfshaker repositories, including
 /// methods to create snapshots and pack files, and to extract files from them.
 pub struct Repository {
     /// The path containing the [`Repository::data_dir`] directory.
     path: PathBuf,
+    /// elfshaker_data dir
+    data_dir: PathBuf,
     /// Since there might be multiple long running sub-tasks invoked in each
     /// macro tasks (e.g. extract snapshot includes fetching the .esi,
     /// fetching individual pack, etc.), it is useful to use a "factory",
@@ -141,7 +150,7 @@ impl Repository {
     where
         P: AsRef<Path>,
     {
-        let data_dir = path.as_ref().join(&*Self::data_dir());
+        let data_dir = path.as_ref().join(&REPO_DIR);
         if !Path::exists(&data_dir) {
             error!(
                 "The directory {:?} is not an elfshaker repository!",
@@ -152,6 +161,33 @@ impl Repository {
 
         Ok(Repository {
             path: path.as_ref().to_owned(),
+            data_dir,
+            progress_reporter_factory: Box::new(|_| ProgressReporter::dummy()),
+        })
+    }
+
+    /// Opens the specified repository with separate worktree
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path containing the worktree of the repository
+    /// * `elfshaker_repo_dir` - elfshaker_data [`Repository::data_dir`] directory.
+    pub fn open_with_separate_worktree<P>(path: P, elfshaker_repo_dir: P) -> Result<Self, Error>
+    where
+        P: AsRef<Path>,
+    {
+        let data_dir = elfshaker_repo_dir.as_ref();
+        if !Path::exists(&data_dir) {
+            error!(
+                "The directory {:?} is not an elfshaker repository!",
+                data_dir.parent().unwrap_or_else(|| Path::new("/"))
+            );
+            return Err(Error::RepositoryNotFound);
+        }
+
+        Ok(Repository {
+            path: path.as_ref().to_owned(),
+            data_dir: data_dir.to_path_buf(),
             progress_reporter_factory: Box::new(|_| ProgressReporter::dummy()),
         })
     }
@@ -159,7 +195,7 @@ impl Repository {
     // Reads the state of HEAD. If the file does not exist, returns None values.
     // If ctime/mtime cannot be determined, returns None.
     pub fn read_head(&self) -> Result<(Option<SnapshotId>, Option<SystemTime>), Error> {
-        let path = self.path.join(&*Self::data_dir()).join(HEAD_FILE);
+        let path = self.data_dir.join(HEAD_FILE);
 
         let (head, mtime) = match open_file(path) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => (None, None),
@@ -198,7 +234,7 @@ impl Repository {
     }
 
     pub fn packs(&self) -> Result<Vec<PackId>, Error> {
-        let root = self.path.join(REPO_DIR).join(PACKS_DIR);
+        let root = self.data_dir().join(PACKS_DIR);
         fs::create_dir_all(&root)?;
         let mut result = WalkDir::new(&root)
             .into_iter()
@@ -241,8 +277,7 @@ impl Repository {
     fn pack_index_mtime(&self, pack_id: &PackId) -> Result<SystemTime, Error> {
         let pack_index_path = match pack_id {
             PackId::Pack(name) => self
-                .path
-                .join(&*Repository::data_dir())
+                .data_dir
                 .join(PACKS_DIR)
                 .join(name)
                 .with_extension(PACK_INDEX_EXTENSION),
@@ -288,8 +323,8 @@ impl Repository {
     }
 
     pub fn is_pack(&self, pack_id: &str) -> Result<Option<PackId>, IdError> {
-        let data_dir = self.path.join(&*Repository::data_dir());
-        let pack_index_path = data_dir
+        let pack_index_path = self
+            .data_dir
             .join(PACKS_DIR)
             .join(pack_id)
             .with_extension(PACK_INDEX_EXTENSION);
@@ -310,8 +345,8 @@ impl Repository {
             return false;
         }
 
-        let data_dir = self.path.join(&*Repository::data_dir());
-        let pack_index_path = data_dir
+        let pack_index_path = self
+            .data_dir
             .join(PACKS_DIR)
             .join(pack_name)
             .with_extension(PACK_INDEX_EXTENSION);
@@ -319,9 +354,9 @@ impl Repository {
     }
 
     pub fn load_index(&self, pack_id: &PackId) -> Result<PackIndex, Error> {
-        let data_dir = self.path.join(&*Repository::data_dir());
         let pack_index_path = match pack_id {
-            PackId::Pack(name) => data_dir
+            PackId::Pack(name) => self
+                .data_dir
                 .join(PACKS_DIR)
                 .join(name)
                 .with_extension(PACK_INDEX_EXTENSION),
@@ -331,9 +366,9 @@ impl Repository {
     }
 
     pub fn load_index_snapshots(&self, pack_id: &PackId) -> Result<Vec<String>, Error> {
-        let data_dir = self.path.join(&*Repository::data_dir());
         let pack_index_path = match pack_id {
-            PackId::Pack(name) => data_dir
+            PackId::Pack(name) => self
+                .data_dir
                 .join(PACKS_DIR)
                 .join(name)
                 .with_extension(PACK_INDEX_EXTENSION),
@@ -486,7 +521,7 @@ impl Repository {
     }
 
     fn update_remote_pack(&self, pack: &PackId) -> Result<(), Error> {
-        let mut remotes_dir = self.path().join(&*Repository::data_dir());
+        let mut remotes_dir = self.data_dir();
         remotes_dir.push(REMOTES_DIR);
         let remotes = remote::load_remotes(&remotes_dir)?;
 
@@ -502,8 +537,7 @@ impl Repository {
             if let Some(remote_pack) = remote.find_pack(pack) {
                 info!("Found {} in {}. Updating...", pack, remote);
                 let pack_path = self
-                    .path()
-                    .join(&*Repository::data_dir())
+                    .data_dir
                     .join(PACKS_DIR)
                     .join(remote.name().unwrap())
                     .join(pack_file_name);
@@ -520,8 +554,8 @@ impl Repository {
     }
 
     /// The name of the directory containing the elfshaker repository data.
-    pub fn data_dir() -> Cow<'static, str> {
-        Cow::Borrowed(REPO_DIR)
+    pub fn data_dir(&self) -> PathBuf {
+        self.data_dir.to_owned()
     }
 
     pub fn create_snapshot<I, P>(&mut self, snapshot: &SnapshotId, files: I) -> Result<(), Error>
@@ -529,68 +563,71 @@ impl Repository {
         I: Iterator<Item = P>,
         P: AsRef<Path>,
     {
-        let files = clean_file_list(self.path.as_ref(), files)?.collect::<Vec<_>>();
+        let files =
+            clean_file_list(self.data_dir(), self.path.as_ref(), files)?.collect::<Vec<_>>();
         info!("Computing checksums for {} files...", files.len());
 
         let temp_dir = self.temp_dir();
         ensure_dir(&temp_dir)?;
 
         let threads = num_cpus::get();
+        let pack_entries: Vec<FileEntry> =
+            run_in_parallel(threads, files.into_iter(), |file_path| {
+                let actual_file_path: PathBuf = self.path.join(&file_path);
+                let worktree_relative_file_path = Self::replace_back_to_slash(
+                    &file_path.as_os_str().to_str().unwrap().to_string(),
+                );
 
-        let pack_entries = run_in_parallel(threads, files.into_iter(), |file_path| {
-            let file_path =
-                Self::replace_back_to_slash(&file_path.as_os_str().to_str().unwrap().to_string());
+                let buf: Vec<u8>;
+                let mut checksum = [0u8; 20];
 
-            let buf: Vec<u8>;
-            let mut checksum = [0u8; 20];
+                //let path = Path::new(&file_path);
+                let is_symlink_file = Path::new(&actual_file_path).is_symlink();
+                let metadata;
+                let symlink_target;
+                if is_symlink_file {
+                    buf = Self::create_vec_u8_from_string(worktree_relative_file_path.clone());
+                    metadata = fs::symlink_metadata(&actual_file_path).unwrap();
+                    symlink_target = fs::read_link(&actual_file_path)?;
+                } else {
+                    buf = fs::read(&actual_file_path)?;
+                    metadata = fs::metadata(&actual_file_path).unwrap();
+                    symlink_target = Path::new("").to_path_buf();
+                }
 
-            //let path = Path::new(&file_path);
-            let is_symlink_file = Path::new(&file_path).is_symlink();
-            let metadata;
-            let symlink_target;
-            if is_symlink_file {
-                buf = Self::create_vec_u8_from_string(file_path.clone());
-                metadata = fs::symlink_metadata(&file_path).unwrap();
-                symlink_target = fs::read_link(&file_path)?;
-            } else {
-                buf = fs::read(&file_path)?;
-                metadata = fs::metadata(&file_path).unwrap();
-                symlink_target = Path::new("").to_path_buf();
-            }
+                let mut hasher = Sha1::new();
+                hasher.input(&buf);
+                hasher.result(&mut checksum);
+                self.write_loose_object(&*buf, &temp_dir, &checksum)?;
 
-            let mut hasher = Sha1::new();
-            hasher.input(&buf);
-            hasher.result(&mut checksum);
-            self.write_loose_object(&*buf, &temp_dir, &checksum)?;
+                let file_mtime_info = FileTime::from_last_modification_time(&metadata);
 
-            let file_mtime_info = FileTime::from_last_modification_time(&metadata);
-
-            Ok(FileEntry::new(
-                file_path.into(),
-                checksum,
-                ObjectMetadata {
-                    offset: LOOSE_OBJECT_OFFSET,
-                    size: buf.len() as u64,
-                },
-                FileMetadata {
-                    last_modified: file_mtime_info.unix_seconds(),
-                    last_modified_nanos: file_mtime_info.nanoseconds(),
-                    #[cfg(target_family = "unix")]
-                    bits_mods: metadata.permissions().mode(),
-                    #[cfg(target_family = "windows")]
-                    bits_mods: 0o777,
-                    is_symlink_file,
-                    symlink_target,
-                },
-            ))
-        })
-        .into_iter()
-        .collect::<io::Result<Vec<_>>>()?;
+                Ok(FileEntry::new(
+                    worktree_relative_file_path.into(),
+                    checksum,
+                    ObjectMetadata {
+                        offset: LOOSE_OBJECT_OFFSET,
+                        size: buf.len() as u64,
+                    },
+                    FileMetadata {
+                        last_modified: file_mtime_info.unix_seconds(),
+                        last_modified_nanos: file_mtime_info.nanoseconds(),
+                        #[cfg(target_family = "unix")]
+                        bits_mods: metadata.permissions().mode(),
+                        #[cfg(target_family = "windows")]
+                        bits_mods: 0o777,
+                        is_symlink_file,
+                        symlink_target,
+                    },
+                ))
+            })
+            .into_iter()
+            .collect::<io::Result<Vec<_>>>()?;
 
         let mut index = PackIndex::new();
         index.push_snapshot(snapshot.tag().to_owned(), pack_entries)?;
 
-        let loose_path = self.path().join(REPO_DIR).join(PACKS_DIR).join(LOOSE_DIR);
+        let loose_path = self.data_dir().join(PACKS_DIR).join(LOOSE_DIR);
         ensure_dir(&loose_path)?;
 
         index.save(
@@ -637,8 +674,7 @@ impl Repository {
 
         // Construct output file path.
         let pack_path = {
-            let mut pack_path = self.path.to_owned();
-            pack_path.push(&*Repository::data_dir());
+            let mut pack_path = self.data_dir.to_owned();
             pack_path.push(PACKS_DIR);
             ensure_dir(&pack_path)?;
             pack_path.push(format!("{}.{}", pack_name, PACK_EXTENSION));
@@ -673,6 +709,7 @@ impl Repository {
         let mut frames = vec![];
         let mut frame_bufs = vec![];
 
+        println!("There are opts.num_workers {}", opts.num_workers);
         let frame_results = run_in_parallel(
             opts.num_workers as usize,
             object_partitions.into_iter(),
@@ -742,7 +779,7 @@ impl Repository {
 
     /// Deletes ALL loose snapshots and objects.
     pub fn remove_loose_all(&mut self) -> Result<(), Error> {
-        let mut loose_dir = self.path().join(&*Repository::data_dir());
+        let mut loose_dir = self.data_dir();
         loose_dir.push(LOOSE_DIR);
 
         match fs::remove_dir_all(&loose_dir) {
@@ -754,7 +791,7 @@ impl Repository {
 
     /// Updates the HEAD snapshot id.
     pub fn update_head(&mut self, snapshot_id: &SnapshotId) -> Result<(), Error> {
-        let data_dir = self.path.join(&*Self::data_dir());
+        let data_dir = self.data_dir();
         let snapshot_string = format!("{}\n", snapshot_id);
         ensure_dir(&self.temp_dir())?;
 
@@ -770,7 +807,7 @@ impl Repository {
     }
 
     pub fn add_remote(&mut self, name: &str, url: &str) -> Result<(), Error> {
-        let mut path = self.path.join(REPO_DIR).join(REMOTES_DIR);
+        let mut path = self.data_dir().join(REMOTES_DIR);
         fs::create_dir_all(&path)?;
         path.push(name);
         path.set_extension("esi");
@@ -923,7 +960,7 @@ impl Repository {
     }
 
     fn temp_dir(&self) -> PathBuf {
-        let mut temp_dir = self.path.join(&*Repository::data_dir());
+        let mut temp_dir = self.data_dir();
         temp_dir.push(TEMP_DIR);
         temp_dir
     }
@@ -966,7 +1003,7 @@ impl Repository {
 
     pub fn loose_object_path(&self, checksum: &ObjectChecksum) -> PathBuf {
         let checksum_str = hex::encode(&checksum[..]);
-        let mut obj_path = self.path.join(&*Repository::data_dir());
+        let mut obj_path = self.data_dir();
         // $REPO_DIR/$LOOSE
         obj_path.push(LOOSE_DIR);
 
@@ -981,7 +1018,7 @@ impl Repository {
 
     /// Updates all remotes and their associated .pack.idx files.
     pub fn update_remotes(&self) -> Result<(), Error> {
-        let mut remotes_dir = self.path().join(&*Repository::data_dir());
+        let mut remotes_dir = self.data_dir();
         remotes_dir.push(REMOTES_DIR);
         let remotes = remote::load_remotes(&remotes_dir)?;
 
@@ -993,7 +1030,7 @@ impl Repository {
         for remote in remotes {
             // .path() is Some, because load_remotes guarantees it
             let remote_name = remote.path().unwrap().file_stem().unwrap();
-            let mut remote_packs_dir = self.path().join(&*Repository::data_dir());
+            let mut remote_packs_dir = self.data_dir();
             remote_packs_dir.push(PACKS_DIR);
             remote_packs_dir.push(remote_name);
 
@@ -1047,6 +1084,7 @@ impl Repository {
 /// Cleans the list of file paths relative to the repository root,
 /// and skips any paths pointing into the repository data directory.
 fn clean_file_list<P>(
+    _data_dir: PathBuf,
     _repo_dir: &Path,
     files: impl Iterator<Item = P>,
 ) -> io::Result<impl Iterator<Item = PathBuf>>
@@ -1067,17 +1105,18 @@ where
         .map(|p| Ok(p.as_ref().components().collect::<PathBuf>()))
         .collect::<io::Result<Vec<PathBuf>>>()?
         .into_iter()
-        .filter(|p| !is_elfshaker_data_path(p));
+        .filter(move |p| !is_elfshaker_data_path(_data_dir.as_path(), p));
     Ok(files)
 }
 
 /// Checks if the relative path is rooted at the data directory.
-fn is_elfshaker_data_path(p: &Path) -> bool {
+fn is_elfshaker_data_path(_data_dir: &Path, p: &Path) -> bool {
     assert!(p.is_relative());
-    match p.components().next() {
-        Some(c) => c.as_os_str() == &*Repository::data_dir(),
+    p.starts_with(_data_dir)
+    /*match p.components().next() {
+        Some(c) => c.as_os_str() == REPO_DIR,
         _ => false,
-    }
+    }*/
 }
 
 #[cfg(test)]
@@ -1109,16 +1148,17 @@ mod tests {
         ];
         let repo = Repository {
             path: "/repo".into(),
+            data_dir: ("/repo/".to_owned() + repo::REPO_DIR).into(),
             progress_reporter_factory: Box::new(|_| ProgressReporter::dummy()),
         };
-        let path = repo.loose_object_path(&checksum);
+        let path: PathBuf = repo.loose_object_path(&checksum);
         let path_string = path.to_str().unwrap();
         #[cfg(target_family = "windows")]
         let path_string = path_string.replace(r"\", "/");
         assert_eq!(
             format!(
                 "/repo/{}/{}/fa/f0/deadbeefbadc0de0faf0deadbeefbadc0de0",
-                Repository::data_dir(),
+                repo::REPO_DIR,
                 LOOSE_DIR
             ),
             path_string,
@@ -1127,18 +1167,24 @@ mod tests {
 
     #[test]
     fn data_dir_detected() {
-        let path = format!("{}", Repository::data_dir());
-        assert!(is_elfshaker_data_path(path.as_ref()));
+        let data_dir = Path::new(repo::REPO_DIR);
+        let path = format!("{}", repo::REPO_DIR);
+
+        assert!(is_elfshaker_data_path(data_dir, path.as_ref()));
     }
     #[test]
     fn data_dir_detected_as_parent() {
-        let path = format!("{}/something", Repository::data_dir());
-        assert!(is_elfshaker_data_path(path.as_ref()));
+        let data_dir = Path::new(repo::REPO_DIR);
+        let path = format!("{}/something", repo::REPO_DIR);
+
+        assert!(is_elfshaker_data_path(data_dir, path.as_ref()));
     }
     #[test]
     fn data_dir_not_detected_incorrectly() {
+        let data_dir = Path::new(repo::REPO_DIR);
         let path = "some/path/something";
-        assert!(!is_elfshaker_data_path(path.as_ref()));
+
+        assert!(!is_elfshaker_data_path(data_dir, path.as_ref()));
     }
 
     #[test]

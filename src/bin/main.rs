@@ -1,17 +1,17 @@
 //! SPDX-License-Identifier: Apache-2.0
 //! Copyright (C) 2021 Arm Limited or its affiliates and Contributors. All rights reserved.
 
-mod clone;
-mod extract;
-mod find;
-mod list;
-mod loosen;
-mod pack;
-mod show;
-mod status;
-mod store;
-mod update;
-mod utils;
+use elfshaker::clone;
+use elfshaker::extract;
+use elfshaker::find;
+use elfshaker::list;
+use elfshaker::loosen;
+use elfshaker::pack;
+use elfshaker::show;
+use elfshaker::status;
+use elfshaker::store;
+use elfshaker::update;
+use elfshaker::utils;
 
 use clap::{App, Arg, ArgMatches};
 use elfshaker::log::Logger;

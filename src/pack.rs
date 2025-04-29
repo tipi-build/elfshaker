@@ -3,15 +3,16 @@
 
 use clap::{App, Arg, ArgMatches};
 use log::info;
-use std::{error::Error, ops::ControlFlow, str::FromStr};
+use std::{error::Error, ops::ControlFlow, path::PathBuf, str::FromStr};
 
 use super::utils::{create_percentage_print_reporter, open_repo_from_cwd};
-use elfshaker::{
+use crate::{
     packidx::PackIndex,
-    repo::{PackId, PackOptions, SnapshotId},
+    repo::{PackId, PackOptions, SnapshotId, REPO_DIR},
+    utils::open_repo_with_separate_worktree_from,
 };
 
-pub(crate) const SUBCOMMAND: &str = "pack";
+pub const SUBCOMMAND: &str = "pack";
 
 /// Window log is currently not configurable; We use a hopefully reasonable
 /// value of 28 == 256MiB window log. A configurable window log will require the
@@ -19,21 +20,19 @@ pub(crate) const SUBCOMMAND: &str = "pack";
 /// operations.
 const DEFAULT_COMPRESSION_WINDOW_LOG: u32 = 28;
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn do_pack(
+    data_dir_location: PathBuf,
+    worktree_path: PathBuf,
+    pack: &str,
+    compression_level: i32,
+    threads: u32,
+    frames: u32,
+    indexes: Option<Vec<PackId>>,
+) -> Result<(), Box<dyn Error>> {
     // Parse pack name
-    let pack = matches.value_of("pack").unwrap();
     let pack = PackId::from_str(pack)?;
-    let indexes = matches
-        .values_of("indexes")
-        .map(|opts| {
-            opts.into_iter()
-                .map(PackId::from_str)
-                .collect::<Result<Vec<_>, _>>()
-        })
-        .transpose()?;
 
     // Parse --compression-level
-    let compression_level: i32 = matches.value_of("compression-level").unwrap().parse()?;
     let compression_level_range = zstd::compression_level_range();
     if !compression_level_range.contains(&compression_level) {
         return Err(format!(
@@ -46,7 +45,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     }
 
     // Parse --threads
-    let threads: u32 = match matches.value_of("threads").unwrap().parse()? {
+    let threads = match threads {
         0 => {
             let phys_cores = num_cpus::get_physical();
             info!(
@@ -58,7 +57,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         n => n,
     };
 
-    let mut repo = open_repo_from_cwd()?;
+    let mut repo = open_repo_with_separate_worktree_from(&data_dir_location, &worktree_path)?;
 
     let indexes = indexes
         .map(Result::Ok)
@@ -88,7 +87,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     }
 
     // Parse --frames
-    let frames: u32 = match matches.value_of("frames").unwrap().parse()? {
+    let frames = match frames {
         0 => {
             let loose_size = new_index.object_size_total();
             let frames = get_frame_size_hint(loose_size);
@@ -133,7 +132,41 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+    // Parse pack name
+    let pack = matches.value_of("pack").unwrap();
+    let indexes = matches
+        .values_of("indexes")
+        .map(|opts| {
+            opts.into_iter()
+                .map(PackId::from_str)
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?;
+
+    // Parse --compression-level
+    let compression_level: i32 = matches.value_of("compression-level").unwrap().parse()?;
+
+    // Parse --threads
+    let threads: u32 = matches.value_of("threads").unwrap().parse()?;
+
+    // Parse --frames
+    let frames: u32 = matches.value_of("frames").unwrap().parse()?;
+
+    do_pack(
+        std::env::current_dir()?.join(REPO_DIR),
+        std::env::current_dir()?,
+        pack,
+        compression_level,
+        threads,
+        frames,
+        indexes,
+    );
+
+    Ok(())
+}
+
+pub fn get_app() -> App<'static, 'static> {
     let compression_level_range = zstd::compression_level_range();
 
     App::new(SUBCOMMAND)

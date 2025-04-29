@@ -5,11 +5,11 @@ use clap::{App, Arg, ArgMatches};
 use std::{error::Error, ops::ControlFlow, path::Path};
 
 use super::utils::{format_size, open_repo_from_cwd, print_table};
-use elfshaker::repo::{PackId, Repository, SnapshotId};
+use crate::repo::{PackId, Repository, SnapshotId};
 
-pub(crate) const SUBCOMMAND: &str = "list";
+pub const SUBCOMMAND: &str = "list";
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let snapshot_or_pack = matches.value_of("snapshot_or_pack");
     let bytes = matches.is_present("bytes");
 
@@ -29,7 +29,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     App::new(SUBCOMMAND)
         .about(
             "Prints the list of packs available in the repository, the list of snapshots \

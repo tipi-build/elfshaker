@@ -1,0 +1,158 @@
+name: cmake-build
+# This workflow is  triggered on pushes, pull requests to the repository.
+on:
+  pull_request:
+env:
+  version_in_development: v0.0.17
+  TIPI_CACHE_FORCE_ENABLE: ON
+  CMAKE_TIPI_PROVIDER_ENABLE: ON
+  TIPI_ACCESS_TOKEN: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_ACCESS_TOKEN }}
+  TIPI_REFRESH_TOKEN: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_REFRESH_TOKEN }}
+  TIPI_VAULT_PASSPHRASE: ${{ secrets.ELFSHAKER_TIPI_TEST_USER_TIPI_VAULT_PASSPHRASE }}
+
+jobs:
+  draft-release:
+    permissions:
+      contents: write
+    name: Draft Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.draft_release.outputs.upload_url }}  
+      release_id: ${{ steps.draft_release.outputs.id }}  
+    steps:
+      - name: Create Release
+        id: draft_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          owner: tipi-build 
+          repo: elfshaker
+          commitish: main
+          tag_name: ${{ env.version_in_development }}
+          release_name: ${{ env.version_in_development }} ${{ github.sha }}
+          draft: true
+          prerelease: true 
+
+  build-win:
+    name: build-win
+    runs-on: windows-2019
+    needs: draft-release
+    permissions:
+      contents: write
+    env:
+      PreferredToolArchitecture: x64
+      TIPI_DISTRO_MODE: all
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: install and build 
+        run: |
+          Invoke-WebRequest -Uri https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_windows.ps1 -OutFile install_for_windows.ps1 
+          ./install_for_windows.ps1
+          Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
+          ./rustup-init.exe -q -y
+          tipi connect
+          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
+          mv .\build\vs-16-2019-win64-cxx17\bin\elfshaker_executable.exe .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe
+          Compress-Archive -Path .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe -DestinationPath ./elfshaker-win.zip
+      - name: Upload elfshaker package
+        id: upload-tipi-elfshaker-package 
+        uses: actions/upload-release-asset@v1
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{needs.draft-release.outputs.upload_url}}
+          asset_path: ./elfshaker-win.zip
+          asset_name: elfshaker-win.zip
+          asset_content_type: application/zip
+      - name: run tests 
+        run: |
+          C:\Users\runneradmin\AppData\Local\tipi\tipi.exe . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all -- -DBUILD_TESTING=ON
+
+  build-macos:
+    name: build-macos
+    runs-on: macos-latest
+    needs: draft-release
+    permissions:
+      contents: write
+    env:
+      PreferredToolArchitecture: x64
+      TIPI_DISTRO_MODE: all
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: install and build 
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_macos_linux.sh --output ./install_for_macos_linux.sh
+          chmod +x ./install_for_macos_linux.sh
+          ./install_for_macos_linux.sh
+          curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
+          chmod +x ./sh.rustup.sh
+
+          tipi run ./sh.rustup.sh -q -y --default-host x86_64-apple-darwin --default-toolchain stable-x86_64-apple-darwin
+          tipi connect
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
+          chmod +x ./build/macos-cxx17/bin/elfshaker_executable
+          mv ./build/macos-cxx17/bin/elfshaker_executable ./build/macos-cxx17/bin/elfshaker
+          zip -j elfshaker-macos.zip ./build/macos-cxx17/bin/elfshaker
+      - name: Upload elfshaker package
+        id: upload-tipi-elfshaker-package 
+        uses: actions/upload-release-asset@v1
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{needs.draft-release.outputs.upload_url}}
+          asset_path: ./elfshaker-macos.zip
+          asset_name: elfshaker-macos.zip
+          asset_content_type: application/zip
+      - name: run tests 
+        run: |
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists --test all -- -DBUILD_TESTING=ON
+
+  build-linux:
+    name: build-linux
+    runs-on: ubuntu-latest-8-cores
+    container: 
+      image: tipibuild/tipi-ubuntu:latest
+    needs: draft-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: install and build 
+        run: |
+          export HOME="/home/tipi"
+          tipi connect
+
+          sudo apt update && sudo apt install zip -y
+          curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
+          chmod +x ./sh.rustup.sh
+          ./sh.rustup.sh -q -y --no-modify-path
+          export PATH="$HOME/.cargo/bin:$PATH"
+
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
+          chmod +x ./build/linux-cxx17/bin/elfshaker_executable
+          mv ./build/linux-cxx17/bin/elfshaker_executable ./build/linux-cxx17/bin/elfshaker
+          zip -j elfshaker-linux.zip ./build/linux-cxx17/bin/elfshaker
+      - name: Upload elfshaker package
+        id: upload-tipi-elfshaker-package 
+        uses: actions/upload-release-asset@v1
+        env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{needs.draft-release.outputs.upload_url}}
+          asset_path: ./elfshaker-linux.zip
+          asset_name: elfshaker-linux.zip
+          asset_content_type: application/zip
+      - name: run tests
+        run: |
+          export HOME="/home/tipi"
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists --test all -- -DBUILD_TESTING=ON

@@ -6,9 +6,9 @@ use std::error::Error;
 
 use super::utils::{open_repo_from_cwd, print_table};
 
-pub(crate) const SUBCOMMAND: &str = "find";
+pub const SUBCOMMAND: &str = "find";
 
-pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
+pub fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     let term = matches.value_of("term").unwrap();
     let repo = open_repo_from_cwd()?;
 
@@ -40,7 +40,7 @@ pub(crate) fn run(matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub(crate) fn get_app() -> App<'static, 'static> {
+pub fn get_app() -> App<'static, 'static> {
     App::new(SUBCOMMAND)
         .about("Searches the repository index.")
         .arg(

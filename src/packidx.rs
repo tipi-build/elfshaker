@@ -335,7 +335,7 @@ impl PackIndex {
         let handle = self.object_pool.get(checksum).unwrap();
         self.object_metadata.get(&handle).unwrap()
     }
-    pub(crate) fn objects_partitioned_by_size<'l>(
+    pub fn objects_partitioned_by_size<'l>(
         &self,
         partitions: u32,
         handles: &'l [Handle],
@@ -344,7 +344,7 @@ impl PackIndex {
             self.object_metadata.get(handle).unwrap().size
         })
     }
-    pub(crate) fn compute_object_offsets_and_ordering(mut self) -> (Self, Vec<Handle>) {
+    pub fn compute_object_offsets_and_ordering(mut self) -> (Self, Vec<Handle>) {
         let mut size_handle = self
             .object_metadata
             .iter()

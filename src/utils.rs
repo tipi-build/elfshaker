@@ -1,9 +1,9 @@
 //! SPDX-License-Identifier: Apache-2.0
 //! Copyright (C) 2021 Arm Limited or its affiliates and Contributors. All rights reserved.
 
-use elfshaker::log::measure;
-use elfshaker::progress::ProgressReporter;
-use elfshaker::repo::{Error as RepoError, Repository};
+use crate::log::measure;
+use crate::progress::ProgressReporter;
+use crate::repo::{Error as RepoError, Repository};
 use log::info;
 use std::io::Write;
 use std::sync::{
@@ -22,7 +22,7 @@ use std::sync::{
 ///
 /// What this function does is inject a hook earlier in the panic handling chain
 /// to detect this specific panic occurring and simply not print anything.
-pub(crate) fn silence_broken_pipe() {
+pub fn silence_broken_pipe() {
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         if let Some(message) = panic_info.payload().downcast_ref::<String>() {
@@ -37,7 +37,7 @@ pub(crate) fn silence_broken_pipe() {
 /// Prints the values as a table. The first set of values
 /// is used for the table header. The table header is always
 /// printed to stderr.
-pub(crate) fn print_table<R, C, I>(header: Option<C>, rows: R)
+pub fn print_table<R, C, I>(header: Option<C>, rows: R)
 where
     R: Iterator<Item = C>,
     C: IntoIterator<Item = I>,
@@ -96,15 +96,36 @@ pub fn format_size(bytes: u64) -> String {
     format!("{:.3}MiB", bytes as f64 / 1024.0 / 1024.0)
 }
 
+/// Opens the repo from the provided directory and logs some standard
+/// stats about the process.
+pub fn open_repo_with_separate_worktree_from(
+    data_dir: &std::path::PathBuf,
+    worktree_path: &std::path::PathBuf,
+) -> Result<Repository, RepoError> {
+    // Open repo from cwd.
+    info!("Opening repository...");
+    let (elapsed, open_result) =
+        measure(|| Repository::open_with_separate_worktree(&worktree_path, &data_dir));
+    info!("Opening repository took {:?}", elapsed);
+    open_result
+}
+
+/// Opens the repo from the provided directory and logs some standard
+/// stats about the process.
+pub fn open_repo_from(repo_path: &std::path::PathBuf) -> Result<Repository, RepoError> {
+    // Open repo from cwd.
+    info!("Opening repository...");
+    let (elapsed, open_result) = measure(|| Repository::open(&repo_path));
+    info!("Opening repository took {:?}", elapsed);
+    open_result
+}
+
 /// Opens the repo from the current work directory and logs some standard
 /// stats about the process.
 pub fn open_repo_from_cwd() -> Result<Repository, RepoError> {
     // Open repo from cwd.
     let repo_path = std::env::current_dir()?;
-    info!("Opening repository...");
-    let (elapsed, open_result) = measure(|| Repository::open(&repo_path));
-    info!("Opening repository took {:?}", elapsed);
-    open_result
+    open_repo_from(&repo_path)
 }
 
 pub fn create_percentage_print_reporter(message: &str, step: u32) -> ProgressReporter<'static> {

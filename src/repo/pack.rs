@@ -26,7 +26,7 @@ use super::constants::{
 };
 use super::error::Error;
 use super::fs::{create_file, open_file};
-use super::repository::Repository;
+use super::REPO_DIR;
 use super::{algo::run_in_parallel, constants::DOT_PACK_INDEX_EXTENSION};
 use crate::packidx::{FileEntry, FileMetadata, ObjectChecksum, PackError};
 use crate::{log::measure_ok, packidx::ObjectMetadata};
@@ -310,7 +310,7 @@ impl Pack {
         P: AsRef<Path>,
     {
         let PackId::Pack(pack_name) = pack_name;
-        let mut packs_data = repo.as_ref().join(&*Repository::data_dir());
+        let mut packs_data = repo.as_ref().join(&REPO_DIR);
         packs_data.push(PACKS_DIR);
 
         let mut pack_index_path = packs_data.join(pack_name);
@@ -405,7 +405,7 @@ impl Pack {
     /// * `verify` - Enable/disable checksum verification.
     #[allow(unused_mut)]
     #[allow(clippy::needless_collect)]
-    pub(crate) fn extract_entries<P>(
+    pub fn extract_entries<P>(
         mut self,
         entries: &[FileEntry],
         output_dir: P,
