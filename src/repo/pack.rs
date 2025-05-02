@@ -311,13 +311,12 @@ impl Pack {
     /// # Arguments
     ///
     /// * `pack_name` - The base filename ([`Path::file_stem`]) of the pack.
-    pub fn open<P>(repo: P, pack_name: &PackId) -> Result<Self, Error>
+    pub fn open<P>(repo_data_dir: P, pack_name: &PackId) -> Result<Self, Error>
     where
         P: AsRef<Path>,
     {
         let PackId::Pack(pack_name) = pack_name;
-        let mut packs_data = repo.as_ref().join(&REPO_DIR);
-        packs_data.push(PACKS_DIR);
+        let mut packs_data = repo_data_dir.as_ref().join(&PACKS_DIR);
 
         let pack_index_path = packs_data.join(format!("{}.{}", pack_name, PACK_INDEX_EXTENSION));
         let pack_path = packs_data.join(format!("{}.{}", pack_name, PACK_EXTENSION));
