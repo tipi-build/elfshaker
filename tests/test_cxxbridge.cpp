@@ -10,6 +10,7 @@
 #include <pre/file/string.hpp>
 
 namespace fs = boost::filesystem;
+using namespace std::literals;
 
 
 const auto TEST_DATA_SNAPSHOT_NAMES = boost::unit_test::data::make({ "myrevision.hash" , "myrevision-hash", "my revision", "myrevision_hash", "myrevision🔥hash" });
@@ -21,12 +22,11 @@ BOOST_DATA_TEST_CASE(store_with_separate_worktree_smoke_test,
   td_snapshot_name,
   td_pack_name
 ) {
-  auto temp_test_path = fs::temp_directory_path() / "elfshkr-test" / fs::unique_path();
+  auto temp_test_path = fs::temp_directory_path() / "elfshkr-test" / fs::unique_path() / "worktree";
   std::string worktree_path = temp_test_path.generic_string();
-  worktree_path += "/worktree";
 
-  std::string elfshaker_data_dir = temp_test_path.generic_string();
-  elfshaker_data_dir += "/elfshaker_data";
+  fs::path elfshaker_data_dir_path = fs::temp_directory_path() / "elfshkr-test-datadir" / fs::unique_path() / "elfshaker_data";
+  std::string elfshaker_data_dir = elfshaker_data_dir_path.generic_string();
 
   try {
     elfshaker::init_elfshaker_store( elfshaker_data_dir, worktree_path);
@@ -79,14 +79,21 @@ BOOST_DATA_TEST_CASE(store_with_separate_worktree_smoke_test,
     elfshaker::pack(elfshaker_data_dir, worktree_path, td_pack_name, 12, 0);
   }
 
+  fs::remove_all(fs::path{worktree_path});
+  BOOST_REQUIRE(!fs::exists(fs::path{worktree_path} / "README.md"));
+  fs::remove(fs::path{elfshaker_data_dir} / "HEAD"); // Ensure we extract even when extract_options.reset is not true
+
   {
-    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, td_snapshot_name, extract_options);
+    auto extracted = elfshaker::extract( elfshaker_data_dir, worktree_path, td_pack_name + ":"s + td_snapshot_name, extract_options);
 
     std::cout << "A: " <<  extracted.added_file_count << "\n";
     std::cout << "D: " <<  extracted.removed_file_count << "\n";
     std::cout << "M: " <<  extracted.modified_file_count 
     << std::endl;
   }
+
+  BOOST_REQUIRE(fs::exists(fs::path{worktree_path} / "README.md"));
+  BOOST_REQUIRE(pre::file::to_string((fs::path{worktree_path} / "README.md").generic_string()) == "A readme to store!");
 
 
   {

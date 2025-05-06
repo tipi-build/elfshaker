@@ -230,7 +230,7 @@ impl Repository {
 
     /// Open the pack.
     pub fn open_pack(&self, pack: &PackId) -> Result<Pack, Error> {
-        Pack::open(&self.path, pack)
+        Pack::open(&self.data_dir, pack)
     }
 
     pub fn packs(&self) -> Result<Vec<PackId>, Error> {
