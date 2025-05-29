@@ -54,8 +54,9 @@ jobs:
           ./install_for_windows.ps1
           Invoke-WebRequest -Uri "https://win.rustup.rs/" -OutFile "rustup-init.exe"
           ./rustup-init.exe -q -y
+          New-Item ".tipi/opts" -ItemType File -Value "set(BUILD_TESTING ON CACHE BOOL \"\" FORCE)"
           tipi connect
-          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
+          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists
           mv .\build\vs-16-2019-win64-cxx17\bin\elfshaker_executable.exe .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe
           Compress-Archive -Path .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe -DestinationPath ./elfshaker-win.zip
       - name: Upload elfshaker package
@@ -70,7 +71,7 @@ jobs:
           asset_content_type: application/zip
       - name: run tests 
         run: |
-          C:\Users\runneradmin\AppData\Local\tipi\tipi.exe . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all --test-jobs 1 -- -DBUILD_TESTING=ON
+          C:\Users\runneradmin\AppData\Local\tipi\tipi.exe . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all --test-jobs 1
 
   build-macos:
     name: build-macos
@@ -93,10 +94,10 @@ jobs:
           ./install_for_macos_linux.sh
           curl -fSL https://sh.rustup.rs --output ./sh.rustup.sh
           chmod +x ./sh.rustup.sh
-
+          echo "set(BUILD_TESTING ON CACHE BOOL \"\" FORCE)" >> .tipi/opts
           tipi run ./sh.rustup.sh -q -y --default-host x86_64-apple-darwin --default-toolchain stable-x86_64-apple-darwin
           tipi connect
-          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists
           chmod +x ./build/macos-cxx17/bin/elfshaker_executable
           mv ./build/macos-cxx17/bin/elfshaker_executable ./build/macos-cxx17/bin/elfshaker
           zip -j elfshaker-macos.zip ./build/macos-cxx17/bin/elfshaker
@@ -112,7 +113,7 @@ jobs:
           asset_content_type: application/zip
       - name: run tests 
         run: |
-          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists --test all -- -DBUILD_TESTING=ON
+          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists --test all
 
   build-linux:
     name: build-linux
@@ -130,6 +131,7 @@ jobs:
       - name: install and build 
         run: |
           export HOME="/home/tipi"
+          echo "set(BUILD_TESTING ON CACHE BOOL \"\" FORCE)" >> .tipi/opts
           tipi connect
 
           sudo apt update && sudo apt install zip -y
@@ -138,7 +140,7 @@ jobs:
           ./sh.rustup.sh -q -y --no-modify-path
           export PATH="$HOME/.cargo/bin:$PATH"
 
-          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists -- -DBUILD_TESTING=ON
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists
           chmod +x ./build/linux-cxx17/bin/elfshaker_executable
           mv ./build/linux-cxx17/bin/elfshaker_executable ./build/linux-cxx17/bin/elfshaker
           zip -j elfshaker-linux.zip ./build/linux-cxx17/bin/elfshaker
@@ -155,4 +157,4 @@ jobs:
       - name: run tests
         run: |
           export HOME="/home/tipi"
-          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists --test all -- -DBUILD_TESTING=ON
+          tipi . -t linux-cxx17 --dont-upgrade --verbose --use-cmakelists --test all
