@@ -43,8 +43,8 @@ jobs:
     env:
       PreferredToolArchitecture: x64
       TIPI_DISTRO_MODE: all
-      TIPI_DISTRO_JSON: https://raw.githubusercontent.com/tipi-build/distro/d05ee3521fb64438f41f6966948cd8d6ea7d24f0/distro.json
-      TIPI_DISTRO_JSON_SHA1: dfa346c47371100afea34503201445c29a80569f
+      TIPI_DISTRO_JSON: https://raw.githubusercontent.com/tipi-build/distro/2ce62a7fd963d2bf89cc50184c859e2198f9ef64/distro.json
+      TIPI_DISTRO_JSON_SHA1: 75756944827cbfde68d6dbc7b3f77584420cdc9c
     steps:
       - uses: actions/checkout@v4
         with:
