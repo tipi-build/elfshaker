@@ -1,3 +1,4 @@
-TIPI_DISTRO_JSON=.tipi/distro.json
+TIPI_DISTRO_JSON=https://raw.githubusercontent.com/tipi-build/distro/77b5fe281a1a5358f8e98df8389449d981a23b7a/distro.json
+TIPI_DISTRO_JSON_SHA1=4a3bb2a0de28efa6dfb930e85ad016116ff4fd77
 CMAKE_TIPI_PROVIDER_ENABLE=ON
 TIPI_CACHE_FORCE_ENABLE=ON

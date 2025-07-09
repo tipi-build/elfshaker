@@ -36,7 +36,7 @@ jobs:
 
   build-win:
     name: build-win
-    runs-on: windows-2019
+    runs-on: windows-2022
     needs: draft-release
     permissions:
       contents: write
@@ -56,9 +56,9 @@ jobs:
           ./rustup-init.exe -q -y
           New-Item ".tipi/opts" -ItemType File -Value 'set(BUILD_TESTING ON CACHE BOOL "" FORCE)'
           tipi connect
-          tipi . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists
-          mv .\build\vs-16-2019-win64-cxx17\bin\elfshaker_executable.exe .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe
-          Compress-Archive -Path .\build\vs-16-2019-win64-cxx17\bin\elfshaker.exe -DestinationPath ./elfshaker-win.zip
+          tipi . -t vs-17-2022-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists
+          mv .\build\vs-17-2022-win64-cxx17\bin\elfshaker_executable.exe .\build\vs-17-2022-win64-cxx17\bin\elfshaker.exe
+          Compress-Archive -Path .\build\vs-17-2022-win64-cxx17\bin\elfshaker.exe -DestinationPath ./elfshaker-win.zip
       - name: Upload elfshaker package
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
@@ -71,7 +71,7 @@ jobs:
           asset_content_type: application/zip
       - name: run tests 
         run: |
-          C:\Users\runneradmin\AppData\Local\tipi\tipi.exe . -t vs-16-2019-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all --test-jobs 1
+          C:\Users\runneradmin\AppData\Local\tipi\tipi.exe . -t vs-17-2022-win64-cxx17 -C Release --dont-upgrade --verbose --use-cmakelists --test all --test-jobs 1
 
   build-macos:
     name: build-macos
