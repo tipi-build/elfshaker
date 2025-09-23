@@ -63,8 +63,8 @@ endif()
 
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-  target_link_libraries(elfshaker  ${CMAKE_DL_LIBS})
-  target_link_libraries(elfshaker-cxxbridge   ${CMAKE_DL_LIBS})
+  target_link_libraries(elfshaker INTERFACE ${CMAKE_DL_LIBS})
+  target_link_libraries(elfshaker-cxxbridge INTERFACE ${CMAKE_DL_LIBS})
 endif()
 
 # Installing
