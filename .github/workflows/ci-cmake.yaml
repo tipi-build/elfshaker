@@ -75,7 +75,7 @@ jobs:
 
   build-macos:
     name: build-macos
-    runs-on: macos-latest
+    runs-on: macos-13
     needs: draft-release
     permissions:
       contents: write
@@ -97,10 +97,10 @@ jobs:
           echo "set(BUILD_TESTING ON CACHE BOOL \"\" FORCE)" >> .tipi/opts
           tipi run ./sh.rustup.sh -q -y --default-host x86_64-apple-darwin --default-toolchain stable-x86_64-apple-darwin
           tipi connect
-          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists
-          chmod +x ./build/macos-cxx17/bin/elfshaker_executable
-          mv ./build/macos-cxx17/bin/elfshaker_executable ./build/macos-cxx17/bin/elfshaker
-          zip -j elfshaker-macos.zip ./build/macos-cxx17/bin/elfshaker
+          tipi . -t clang-cxx17 --dont-upgrade --verbose --use-cmakelists
+          chmod +x ./build/clang-cxx17/bin/elfshaker_executable
+          mv ./build/clang-cxx17/bin/elfshaker_executable ./build/clang-cxx17/bin/elfshaker
+          zip -j elfshaker-macos.zip ./build/clang-cxx17/bin/elfshaker
       - name: Upload elfshaker package
         id: upload-tipi-elfshaker-package 
         uses: actions/upload-release-asset@v1
@@ -113,7 +113,7 @@ jobs:
           asset_content_type: application/zip
       - name: run tests 
         run: |
-          tipi . -t macos-cxx17 --dont-upgrade --verbose --use-cmakelists --test all
+          tipi . -t clang-cxx17 --dont-upgrade --verbose --use-cmakelists --test all
 
   build-linux:
     name: build-linux
