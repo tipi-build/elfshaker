@@ -60,7 +60,10 @@ if (BUILD_TESTING)
   add_test(NAME test_cxxbridge COMMAND $<TARGET_FILE:test_cxxbridge>) 
 endif()
 
-
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+  target_link_libraries(elfshaker INTERFACE ${CMAKE_DL_LIBS})
+  target_link_libraries(elfshaker-cxxbridge INTERFACE ${CMAKE_DL_LIBS})
+endif()
 
 # Installing
 
