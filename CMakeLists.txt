@@ -6,15 +6,6 @@ if (BUILD_TESTING)
   enable_testing()
 endif()
 
-include(FetchContent)
-set(FETCHCONTENT_QUIET OFF CACHE BOOL "" FORCE)
-
-#FetchContent_Declare(
-#    Corrosion
-#    GIT_REPOSITORY https://github.com/tipi-build/corrosion.git
-#    GIT_TAG c6132b645d1a0061a5c29ccf6a1d3c6f90490829 # v0.5 patched to support test execution, see https://github.com/tipi-build/corrosion/pull/1
-#)
-#FetchContent_MakeAvailable(Corrosion)
 set(CORROSION_VERBOSE_OUTPUT ON)
 add_subdirectory(cmake/corrosion)
 
@@ -24,40 +15,10 @@ corrosion_add_cxxbridge(elfshaker-cxxbridge CRATE elfshaker FILES lib.rs repo/re
 set(corrosion_generated_dir "${CMAKE_CURRENT_BINARY_DIR}/corrosion_generated")
 set(corrosion_generated_headers "${corrosion_generated_dir}/cxxbridge/elfshaker-cxxbridge/include")
 
-FetchContent_Declare(
-  Boost
-  GIT_REPOSITORY https://github.com/boostorg/boost.git
-  # boost 1.85
-  # GIT_TAG         ab7968a0bbcf574a7859240d1d8443f58ed6f6cf
-  # boost 1.80
-  GIT_TAG         32da69a36f84c5255af8a994951918c258bac601
-)
-FetchContent_MakeAvailable(Boost)
-find_package(boost_system CONFIG REQUIRED)
-find_package(boost_filesystem CONFIG REQUIRED)
-find_package(boost_uuid CONFIG REQUIRED)
-find_package(boost_included_unit_test_framework CONFIG REQUIRED)
-
-
-FetchContent_Declare(
-  cpp-pre
-  #SOURCE_DIR /Users/daminetreg/workspace/cpp-pre/file
-  GIT_REPOSITORY https://github.com/cpp-pre/file.git
-  GIT_TAG        57780f632473360d4daee3a868276498f946ffb6
-)
-FetchContent_MakeAvailable(cpp-pre)
-find_package(cpp-pre_file CONFIG REQUIRED)
-
-
 set(include_install_dir "include")
 
 if (BUILD_TESTING)
-  add_executable(test_cxxbridge tests/test_cxxbridge.cpp)
-  target_link_libraries(test_cxxbridge PUBLIC elfshaker-cxxbridge cpp-pre_file::file Boost::filesystem Boost::included_unit_test_framework)
-  if (CMAKE_SYSTEM_NAME MATCHES Darwin)
-    target_link_libraries(test_cxxbridge PUBLIC "-framework Foundation")
-  endif()
-  add_test(NAME test_cxxbridge COMMAND $<TARGET_FILE:test_cxxbridge>) 
+  add_subdirectory(tests)
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
