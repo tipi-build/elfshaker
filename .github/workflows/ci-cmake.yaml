@@ -75,7 +75,7 @@ jobs:
 
   build-macos:
     name: build-macos
-    runs-on: macos-13
+    runs-on: macos-15-intel
     needs: draft-release
     permissions:
       contents: write
@@ -87,6 +87,10 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
+      - name: fix float16 in Apple's standard library because clang 13 is not compatible with 
+        run: |
+          sudo sed -i '' '/^extern _Float16.*__API_AVAILABLE(macos(15\.0)/ s|^|// |' /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/math.h
+          sudo sed -i '' '/^extern _Float16.*__API_AVAILABLE(macos(15\.0)/ s|^|// |' /Applications/Xcode_*.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX*.sdk/usr/include/math.h
       - name: install and build 
         run: |
           curl -fsSL https://raw.githubusercontent.com/tipi-build/cli/master/install/install_for_macos_linux.sh --output ./install_for_macos_linux.sh
